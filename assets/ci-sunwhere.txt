@@ -1,0 +1,35 @@
+
+# # PRISTINE UBUNTU IMAGES: https://hub.docker.com/_/ubuntu/tags
+# podman run --rm -it --net=host -e DISPLAY=$DISPLAY -w /root -v /home/jararias/code/devel/sunwhere:/root/code/devel/sunwhere ubuntu:latest
+# Vienen peladas y necesitan instalar muchas cosas
+# apt-get install -y python3 python3.10-venv python3.10-dev libpython3.10-dev
+
+
+# INTEL OFRECE UNA IMAGEN CON UBUNTU, Y LAS INTEL ONEAPI INSTALADAS !! QUE ADEMAS TIENE PYTHON3 !!
+# # https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html?operatingsystem=linux&distributions=docker
+
+podman run --rm -it --net=host -e DISPLAY=$DISPLAY -w /root -v /home/jararias/code/devel/sunwhere:/root/code/devel/sunwhere intel/oneapi-basekit
+
+# instala lo imprescindible necesario en el ubuntu
+apt-get update
+apt-get install -y python3.10-dev python3-venv git
+
+# crea y entra en un entorno virtual de python
+python3 -m venv venv
+source venv/bin/activate
+
+# instala el numexpr desde las fuentes
+git clone https://github.com/pydata/numexpr
+cd numexpr
+echo "[mkl]" > site.cfg
+echo "library_dirs = /opt/intel/oneapi/mkl/latest/lib/intel64" >> site.cfg
+echo "include_dirs = /opt/intel/oneapi/mkl/latest/include" >> site.cfg
+echo "libraries = mkl_rt" >> site.cfg
+python3 -m pip install -r requirements.txt
+python3 setup.py build install
+
+export SOURCE_DIR="code/devel/sunwhere"
+python3 -m pip install $SOURCE_DIR/.[timezone,lint,test]
+flake8 $SOURCE_DIR --count --select=E9,F63,F7,F82 --show-source --statistics
+flake8 $SOURCE_DIR --count --exit-zero --max-complexity=20 --max-line-length=127 --statistics
+pytest $SOURCE_DIR/tests/

@@ -1,0 +1,5 @@
+loguru
+numexpr
+pandas
+xarray
+numpy

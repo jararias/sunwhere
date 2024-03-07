@@ -1,0 +1,11 @@
+urllib3
+dateutil
+tqdm
+pvlib
+seaborn
+SolTrack @ git+https://github.com/jararias/SolTrack
+lazydocs @ git+https://github.com/jararias/lazydocs
+pytest
+pytest-allclose
+flake8
+coverage
