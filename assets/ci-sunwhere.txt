@@ -29,7 +29,13 @@ python3 -m pip install -r requirements.txt
 python3 setup.py build install
 
 export SOURCE_DIR="code/devel/sunwhere"
-python3 -m pip install $SOURCE_DIR/.[timezone,lint,test]
+python3 -m pip install $SOURCE_DIR/.[lint,test]
 flake8 $SOURCE_DIR --count --select=E9,F63,F7,F82 --show-source --statistics
 flake8 $SOURCE_DIR --count --exit-zero --max-complexity=20 --max-line-length=127 --statistics
-pytest $SOURCE_DIR/tests/
+cd $SOURCE_DIR
+coverage run -m pytest tests/ -v
+coverage report  # for report in the terminal
+# coverage html  # for a comprehensive html report with links to the uncovered code
+
+# Ctrl-C to terminate the container. Because it was run
+# with the --rm option, it is automatically removed on exit
