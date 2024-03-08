@@ -1,14 +1,14 @@
 
 import gc
+import sys
+import tempfile
 import warnings
-import itertools as itt
 from timeit import Timer
 from pathlib import Path
 
-import urllib3
-import dateutil.parser as dtparser
-from loguru import logger
 from tqdm import tqdm
+from loguru import logger
+from tabulate import tabulate
 
 import numpy as np
 import pylab as pl
@@ -16,136 +16,19 @@ import pandas as pd
 import seaborn as sns
 
 import pvlib.solarposition as pvsol
-import sunwhere
 from soltrack import SolTrack
 # !python3 -m pip install git+https://github.com/jararias/SolTrack
 from pysparta import SPARTA
 
-
-# NOTE: keep an eye on https://github.com/MarcvdSluys/SolTrack-Python
-
-
-def get_jpl_ephemeris(out_filename, start_time, stop_time, site_lon, site_lat, site_elev=0., step_size=1):
-    # site_elev in km
-    # step_size in minutes
-
-    server = 'https://ssd.jpl.nasa.gov/api/horizons.api'
-    format = 'format=text'
-    _options = {
-        'COMMAND': '10',                # the Sun
-        'OBJ_DATA': 'YES',
-        'MAKE_EPHEM': 'YES',
-        'EPHEM_TYPE': 'OBSERVER',
-        'CENTER': 'coord@399',
-        # 'START_TIME': '2024-01-01',   # format: yyyy-mm-dd hh:mm
-        # 'STOP_TIME': '2024-01-02',    # format: yyyy-mm-dd hh:mm
-        # 'STEP_SIZE': '1 MINUTES',
-        'QUANTITIES': '4,20',           # solar azimuth, elevation, and sun-earth distance (i.e., range)
-        'COORD_TYPE': 'GEODETIC',       # to provide the location coordinates as lon and lat
-        # 'SITE_COORD': '-3.5,37.5,0',  # location's lon, lat and altitude
-        'REF_SYSTEM': 'ICRF',
-        'CAL_FORMAT': 'BOTH',
-        'CAL_TYPE': 'M',
-        'TIME_DIGITS': 'SECONDS',
-        'ANG_FORMAT': 'DEG',            # units for angles
-        'APPARENT': 'AIRLESS',          # airless for NO atmospheric refraction
-        'RANGE_UNITS': 'AU',            # units for the sun-earth distance
-        'SUPPRESS_RANGE_RATE': 'YES',
-        'SKIP_DAYLT': 'NO',
-        'SOLAR_ELONG': '0,180',
-        'EXTRA_PREC': 'NO',
-        'R_T_S_ONLY': 'NO',
-        'CSV_FORMAT': 'NO'
-    }
-
-    options = _options | {
-        'START_TIME': pd.to_datetime(start_time).strftime('%Y-%m-%d %H:%M'),
-        'STOP_TIME': pd.to_datetime(stop_time).strftime('%Y-%m-%d %H:%M'),
-        'SITE_COORD': f'{site_lon:.6f},{site_lat:.6f},{site_elev:.3f}',
-        'STEP_SIZE': f'{step_size:.0f} MINUTES'
-    }
-
-    max_lines = 90024  # max. allowed request lines !!!
-    n_times = len(pd.date_range(options['START_TIME'], options['STOP_TIME'],
-                                freq=f"{options['STEP_SIZE'].split()[0]}min"))
-    if n_times > max_lines:
-        raise ValueError(f'your request involves {n_times} data lines, which '
-                         f'exceeds the max. allowed request lines of {max_lines}')
-
-    url = server + '?' + format + '&' + '&'.join([f"{k}='{v}'" for k, v in options.items()])
-
-    http = urllib3.PoolManager()
-    response = http.request('GET', url)
-    data = response.data.decode('utf-8')
-    http.clear()
-
-    path = Path(out_filename)
-    if not path.parent.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-    path.open(mode='w').write(data)
-
-    return path
+import sunwhere
+from sunwhere.utils.jpl_horizons import (
+    get_jpl_ephemeris,
+    read_jpl_ephemeris_file
+)
 
 
-def read_jpl_ephemeris_file(filename):
-
-    def parse_line(line):
-        dt64 = 'datetime64[ns]'
-        dt = np.datetime64(dtparser.parse(line[1:21])).astype(dt64).astype('float64')
-        jd = float(line[22:39])
-        # sun_moon_presence = line[40:42]
-        az = float(line[43:54])
-        el = float(line[55:66])
-        r = float(line[67:84])  # in AU
-        return dt, jd, az, el, r
-
-    with open(filename, 'r') as f:
-        lines = f.readlines()
-    first_data_line = lines.index('$$SOE\n')+1
-    last_data_line = lines.index('$$EOE\n', first_data_line)
-    a = np.array([parse_line(line) for line in lines[first_data_line: last_data_line]])
-    return (pd.DataFrame(a)
-            .set_index(pd.to_datetime(a[:, 0])).drop(columns=0)
-            .set_axis(['julian_day', 'azimuth0-360', 'elevation', 'R'], axis=1)
-            .rename_axis('time_utc', axis=0)
-            .assign(
-                azimuth=lambda df: df['azimuth0-360']-180,
-                zenith=lambda df: 90.-df['elevation'],
-                ecf=lambda df: 1/df['R']**2)
-            .drop(columns=['azimuth0-360', 'elevation', 'R']))
-
-
-def load_jpl_ephemeris(year=2024, site_lon=-3.5, site_lat=37.5):
-    out_dir = Path('data')
-    if not out_dir.exists():
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-    whole_data_filename = out_dir / f'jpl_ephemeris_highres_{year}.parquet'
-    if not whole_data_filename.exists():
-        data = []
-        filenames = []
-        for month in range(1, 13):
-            out_filename = out_dir / f'jpl_ephemeris_highres_{year}-{month:02d}.txt'
-            if not out_filename.exists():
-                logger.info(f'downloading high-res ephemeris to file {out_filename}')
-                start_time = pd.to_datetime(f'{year}-{month:02d}-01 00:00')
-                stop_time = (start_time + pd.Timedelta('35days')).replace(day=1) - pd.Timedelta('1min')
-                get_jpl_ephemeris(out_filename, start_time, stop_time, site_lon, site_lat, step_size=12)
-                filenames.append(out_filename)
-                logger.success('data downloaded')
-            logger.info(f'loading high-res ephemeris from file {out_filename}')
-            data.append(read_jpl_ephemeris_file(out_filename).drop(columns='julian_day'))
-        df = pd.concat(data, axis=0)
-        df.insert(0, 'site_lat', site_lat)
-        df.insert(0, 'site_lon', site_lon)
-
-        df.to_parquet(whole_data_filename)
-
-        for filename in filenames:
-            filename.unlink()
-
-    ephemeris = pd.read_parquet(whole_data_filename)
-    return ephemeris.set_index(ephemeris.index.tz_localize('UTC'))
+logger.remove()
+logger.add(sys.stdout, format="<lvl>{message}</lvl>", level="INFO")
 
 
 def add_level(df, label, level_names=None):
@@ -221,76 +104,26 @@ def add_clearsky_irradiance(ephemeris, **kwargs):
 def calc_residues(data, reference, relative=False):
 
     def calc_error(m, o):
-        return (m - o) / o if relative is True else m - o
+        diff = m - o
+        if 'azimuth' in diff.columns:
+            diff['azimuth'] = diff['azimuth'].where(diff['azimuth'] > -330, -360 - diff['azimuth'])
+            diff['azimuth'] = diff['azimuth'].where(diff['azimuth'] < 330, 360 - diff['azimuth'])
+        return diff / o if relative is True else diff
 
     residue = data.copy()
     methods = residue.columns.get_level_values('method')
     for method in methods.unique().drop(reference):
-        residue[method] = calc_error(residue[method], residue[reference])
+        residue[method] = calc_error(data[method], data[reference])
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         residue = residue.drop(columns=reference)
     return residue
 
 
-def get_bulk_clearsky_errors(ephemeris, **kwargs):
-    methods = {
-        'sunwhere.nrel_numexpr': 'nrel',
-        'sunwhere.psa_numexpr': 'psa',
-        'sunwhere.iqbal_numexpr': 'iqbal',
-        'sunwhere.soltrack_numexpr': 'soltrack',
-        'jpl': 'jpl'
-    }
-
-    residue = calc_residues(
-        # keep only the relevant sunwhere's methods...
-        ephemeris.loc[:, methods.keys()].rename(columns=methods)
-        .drop('azimuth', level='variable', axis=1)  # drop azimuth
-        .loc[ephemeris[('jpl', 'zenith')] < 90.]  # drop night time
-        .pipe(add_clearsky_irradiance, **kwargs),  # add SPARTA
-        reference='jpl', relative=False
-    )
-
-    # calculate error scores...
-    def named_function(f, name):
-        f.__name__ = name
-        return f
-
-    scores = residue.agg(
-        [
-            named_function(lambda r: r.mean(), 'mbe'),
-            named_function(lambda r: r.abs().mean(), 'mae'),
-            named_function(lambda r: r.abs().mean(), 'std'),
-            named_function(lambda r: r.pow(2).mean()**0.5, 'rmse'),
-            named_function(lambda r: (r-r.mean()).abs().quantile(0.66), 'p66'),
-            named_function(lambda r: (r-r.mean()).abs().quantile(0.90), 'p90')
-        ]
-    )
-
-    # re-format error scores table...
-    scores = (
-        scores.stack(level='method')
-        .rename_axis(['score', 'method'], axis=0).reset_index()
-        .pivot(index='method', columns='score')
-        .swaplevel(axis=1).sort_index(axis=1)
-    )
-
-    # append and re-format error scores table...
-    variables = ['ghi', 'dni', 'dif']
-    scores = pd.concat(
-        [scores.xs(variable, level='variable', axis=1)
-         .loc[['nrel', 'psa', 'soltrack', 'iqbal']] for variable in variables],
-        keys=variables, names=['variable', 'score'], axis=1)
-
-    return (scores.stack(level='variable').swaplevel(axis=0)
-            .rename_axis(['variable', 'algorithm'], axis=0)
-            .sort_index(level='variable', sort_remaining=False, axis=0))
-
-
 def get_bulk_ephemeris_errors(ephemeris):
 
     residue = (calc_residues(ephemeris, reference='jpl', relative=False)
-               .loc[ephemeris[('jpl', 'zenith')] < 90.])
+               .loc[ephemeris[('jpl', 'zenith')] < 180.])
 
     # calculate error scores...
     def named_function(f, name):
@@ -300,11 +133,11 @@ def get_bulk_ephemeris_errors(ephemeris):
     scores = residue.agg(
         [
             named_function(lambda r: r.mean(), 'mbe'),
+            named_function(lambda r: r.std(), 'std'),
             named_function(lambda r: r.abs().mean(), 'mae'),
-            named_function(lambda r: r.abs().mean(), 'std'),
             named_function(lambda r: r.pow(2).mean()**0.5, 'rmse'),
-            named_function(lambda r: r.abs().quantile(0.66), 'p66'),
-            named_function(lambda r: r.abs().quantile(0.90), 'p90')
+            named_function(lambda r: (r-r.mean()).abs().quantile(0.66), 'p66'),
+            named_function(lambda r: (r-r.mean()).abs().quantile(0.90), 'p90')
         ]
     )
 
@@ -327,7 +160,65 @@ def get_bulk_ephemeris_errors(ephemeris):
             .sort_index(level='variable', sort_remaining=False, axis=0))
 
 
-def plot_accuracy(ephemeris, sort_by=None):
+def get_bulk_clearsky_errors(ephemeris, **kwargs):
+    required_methods_mapping = {
+        'sunwhere.nrel_numexpr': 'nrel',
+        'sunwhere.psa_numexpr': 'psa',
+        'sunwhere.iqbal_numexpr': 'iqbal',
+        'sunwhere.soltrack_numexpr': 'soltrack',
+        'jpl': 'jpl'
+    }
+
+    available_methods = ephemeris.columns.get_level_values('method').unique()
+    methods = available_methods.intersection(list(required_methods_mapping.keys()))
+    residue = calc_residues(
+        # keep only the relevant sunwhere's methods...
+        ephemeris.loc[:, methods]
+        .rename(columns=required_methods_mapping)
+        .drop('azimuth', level='variable', axis=1)  # drop azimuth
+        .loc[ephemeris[('jpl', 'zenith')] < 90.]  # drop night time
+        .pipe(add_clearsky_irradiance, **kwargs),  # add SPARTA
+        reference='jpl', relative=False
+    )
+
+    # calculate error scores...
+    def named_function(f, name):
+        f.__name__ = name
+        return f
+
+    scores = residue.agg(
+        [
+            named_function(lambda r: r.mean(), 'mbe'),
+            named_function(lambda r: r.std(), 'std'),
+            named_function(lambda r: r.abs().mean(), 'mae'),
+            named_function(lambda r: r.pow(2).mean()**0.5, 'rmse'),
+            named_function(lambda r: (r-r.mean()).abs().quantile(0.66), 'p66'),
+            named_function(lambda r: (r-r.mean()).abs().quantile(0.90), 'p90')
+        ]
+    )
+
+    # re-format error scores table...
+    scores = (
+        scores.stack(level='method')
+        .rename_axis(['score', 'method'], axis=0).reset_index()
+        .pivot(index='method', columns='score')
+        .swaplevel(axis=1).sort_index(axis=1)
+    )
+
+    # append and re-format error scores table...
+    variables = ['ghi', 'dni', 'dif']
+    available_methods = scores.index.intersection(['nrel', 'psa', 'soltrack', 'iqbal'])
+    scores = pd.concat(
+        [scores.xs(variable, level='variable', axis=1)
+         .loc[available_methods] for variable in variables],
+        keys=variables, names=['variable', 'score'], axis=1)
+
+    return (scores.stack(level='variable').swaplevel(axis=0)
+            .rename_axis(['variable', 'algorithm'], axis=0)
+            .sort_index(level='variable', sort_remaining=False, axis=0))
+
+
+def plot_accuracy(ephemeris, sort_by=None, filename=None):
 
     df = (
         calc_residues(ephemeris, reference='jpl', relative=False)
@@ -346,9 +237,10 @@ def plot_accuracy(ephemeris, sort_by=None):
             .drop(columns='mae')
         )
 
-    methods_to_remove = ['sunwhere.nrel_numpy', 'sunwhere.psa_numpy',
-                         'sunwhere.iqbal_numpy', 'sunwhere.soltrack_numpy',
-                         'pvlib.nrel_numpy', 'soltrack.SolTrack']
+    methods_to_remove = [
+        'sunwhere.nrel_numpy', 'sunwhere.psa_numpy',
+        'sunwhere.iqbal_numpy', 'sunwhere.soltrack_numpy',
+        'pvlib.nrel_numpy', 'soltrack.SolTrack']
     df = df.loc[~df.method.isin(methods_to_remove)]
 
     df['method'] = df.method.map(
@@ -400,7 +292,8 @@ def plot_accuracy(ephemeris, sort_by=None):
     pl.suptitle('Absolute solar zenith and azimuth angle differences (bluish and reddish, '
                 f'respectively) against JPL Horizons System ephemeris ({len(df)} samples)',
                 fontsize='x-large')
-    pl.savefig('../assets/accuracy_benchmark.png')
+    if filename is not None:
+        pl.savefig(filename)  # '../assets/accuracy_benchmark.png')
 
 
 def speed_meter(library, algorithm, n_times, n_locs=1, n_repeats=3, number=1, quiet=True):
@@ -482,9 +375,9 @@ def speed_meter(library, algorithm, n_times, n_locs=1, n_repeats=3, number=1, qu
     return mean_time, std_time  # us / sim-step
 
 
-def load_speed_tests():
+def load_speed_tests(out_dir=None):
 
-    out_dir = Path('data')
+    out_dir = Path(out_dir or '.')
     if not out_dir.exists():
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -494,19 +387,14 @@ def load_speed_tests():
                      'psa_numexpr', 'psa_numpy',
                      'iqbal_numexpr', 'iqbal_numpy'],
         'pvlib': ['nrel_numba', 'nrel_numpy']  # , 'pyephem', 'ephemeris']
-    }  # pyephem and ephemeris are too much slow as to be considered !!
+    }  # pyephem and ephemeris are too slow to be considered !!
 
-    time_steps = [1, 10, 100, 1000, 10000, 50000, 100000, 500000]
-    locations = [1, 10, 100, '10x10', '50x50', '100x100']
-
-    # time_steps = [1, 10]
-    # locations = [1, 10, '4x4']
+    time_steps = [1, 10, 100, 1000, 10000, 100000, 1000000]
+    locations = [1, 100, '10x10']
 
     def iter_dataframe(df):
         for idx in df.index:
             for col in df.columns:
-                if (idx >= 10000) and (col in ('50x50', '100x100')):
-                    continue
                 yield int(idx), col
 
     keys = []
@@ -519,7 +407,7 @@ def load_speed_tests():
                 if not this_filename.exists():
                     df = pd.DataFrame(index=time_steps, columns=locations)
                     kwargs = {'desc': f'{library}.{algorithm}',
-                              'total': len(list(iter_dataframe(df)))}
+                                'total': len(list(iter_dataframe(df)))}
                     pbar = tqdm(iter_dataframe(df), **kwargs)
                     for n_times, n_locs in pbar:
                         pbar.set_postfix({'n_times': n_times, 'n_locs': n_locs})
@@ -534,123 +422,136 @@ def load_speed_tests():
                 .rename_axis('n_times', axis=0))
 
 
-def plot_exec_time_and_accuracy(ephemeris, cs_errors):
+def plot_exec_time(filename=None):
 
-    error_metrics = get_bulk_ephemeris_errors(ephemeris)
+    # # out_dir = '/home/jararias/code/devel/sunwhere/benchmark/data'
+    # exec_time = (load_speed_tests()  # out_dir)
+    #              .stack(level=['n_locs', 'algorithm'])
+    #              .rename('t_rel (us)').reset_index())
+    # exec_time.to_csv('/home/jararias/code/devel/sunwhere/assets/exec_time_us.csv')
 
-    exec_time = load_speed_tests().mul(1e-6)  # seconds
-    exec_time = (
-        exec_time.stack(level=['n_locs', 'algorithm'])
-        .rename('t_rel (s)').reset_index())
-    exec_time = exec_time.loc[exec_time.n_locs.isin(['1', '100', '10x10', '50x50'])]
-    exec_time = exec_time.loc[exec_time.n_times.isin([1, 1000, 50000, 500000])]
-    n_locs = exec_time['n_locs'].str.split('x').map(lambda seq: np.array(seq, dtype=int).prod())
-    exec_time['t_tot (s)'] = exec_time['t_rel (s)']*exec_time['n_times']*n_locs
+    inp_filename = '/home/jararias/code/devel/sunwhere/assets/exec_time_us.csv'
+    exec_time = pd.read_csv(inp_filename, index_col=0)  # in microseconds
 
-    mae = error_metrics.xs('zenith', level='variable', axis=0)['mae']
-    ghi_errors = cs_errors.xs('ghi', level='variable', axis=0)
+    fig, axes = pl.subplots(1, 3, figsize=(16, 6), layout='constrained')
+    for k, n_locs in enumerate(('1', '100', '10x10')):
+        df = (exec_time.loc[exec_time.n_locs == n_locs].drop(columns='n_locs')
+              .pivot(index='n_times', columns='algorithm')
+              .droplevel(0, axis=1))  # microseconds / ephemeris
 
-    def get_algorithm_ci(name):
-        if 'nrel' in name.lower():
-            return ghi_errors.loc['nrel'][['mbe', 'p90']].tolist()
-        if 'psa' in name.lower():
-            return ghi_errors.loc['psa'][['mbe', 'p90']].tolist()
-        if 'soltrack' in name.lower():
-            return ghi_errors.loc['soltrack'][['mbe', 'p90']].tolist()
-        if 'iqbal' in name.lower():
-            return ghi_errors.loc['iqbal'][['mbe', 'p90']].tolist()
-        return 0, 0
+        df.columns = pd.MultiIndex.from_tuples(
+            [(e[0], *e[1].split('_')) for e in df.columns.str.split('.')],
+            names=['library', 'algorithm', 'engine'])
 
-    benchmark = exec_time.assign(
-        zenith_mae=exec_time.algorithm.map(lambda x: mae.loc[x]),
-        # cs_ci=exec_time.algorithm.map(get_algorithm_class)
-    )
-    print(benchmark)
+        n_tot_locs = np.prod(n_locs.split('x'), dtype=float) if 'x' in n_locs else float(n_locs)
+        total_sec = df.apply(lambda x: x * x.index * n_tot_locs * 1e-6)  # total seconds
 
-    def iterate_dataframe(df):
-        list_of_times = df.n_times.unique()
-        list_of_locs = df.n_locs.unique()
-        for k, (n_times, n_locs) in enumerate(itt.product(list_of_times, list_of_locs)):
-            subset = df.loc[(df.n_times == n_times) & (df.n_locs == n_locs)]
-            yield k, n_times, n_locs, subset
+        ax = axes[k]
+        sns.heatmap(total_sec, annot=True, fmt=".2f", linewidths=0.5,
+                    norm=pl.cm.colors.LogNorm(), cmap='magma_r',
+                    annot_kws={'fontsize': 8}, ax=ax)
+        ax.set_xlabel(None)
+        ax.set_title(f'n_locs={n_locs}', fontsize=10)
+        ax.tick_params(axis='y', labelrotation=0)
+        fig.suptitle('Total execution time, seconds', fontsize=13)
 
-    pl.rcParams['axes.titlesize'] = 11
-    pl.rcParams['axes.titlepad'] = 2
-    pl.rcParams['axes.labelsize'] = 12
+        # print(f'\nTOTAL EXECUTION TIME FOR {n_locs} LOCATIONS (in seconds)')
+        # print(
+        #     tabulate(
+        #         (total_sec.set_axis(['\n'.join(col) for col in total_sec.columns], axis=1)
+        #         .rename_axis('\n\nn_times', axis=0)), headers='keys', floatfmt=".3f"
+        #     ), end='\n'
+        # )
+            
+        # rate = 1 / df  # Mill. ephemerides / second
+        # print(
+        #     tabulate(
+        #         (rate.set_axis(['\n'.join(col) for col in rate.columns], axis=1)
+        #          .rename_axis('\n\nn_times', axis=0)), headers='keys', floatfmt=".3f"
+        #     ), end='\n'
+        # )
 
-    sns.set_style('darkgrid')
-    w, h = pl.figaspect(1)
-    fig, axes = pl.subplots(4, 4, figsize=(w*3, h*3))
-    pl.subplots_adjust(0.05, 0.04, 0.99, 0.98, wspace=0.25, hspace=0.25)
-
-    algorithms = benchmark.algorithm.unique().tolist()
-    colors = itt.cycle(sns.color_palette('Set1', len(algorithms)))
-    for k, n_times, n_locs, subset in iterate_dataframe(benchmark):
-        ax = axes[k // 4, k % 4]
-        if subset.size == 0:
-            ax.set_visible(False)
-            continue
-
-        for algorithm in algorithms:
-            ci = get_algorithm_ci(algorithm)
-            ax.scatter(data=subset.loc[subset.algorithm == algorithm],
-                       x='t_tot (s)', y='zenith_mae', marker='o',
-                       s=100, color=next(colors), edgecolors='white',
-                       label=f'{algorithm} ({ci[0]:.2f} \u00b1 {ci[1]:.2f})')
-
-        ax.set(xscale='log', yscale='log',
-               title=f'n_times={n_times}, n_locs={n_locs}')
-
-    ymin, ymax = np.inf, -np.inf
-    for row_of_axes in axes:
-        # xmin = min([ax.get_xlim()[0] for ax in row_of_axes])
-        # xmax = max([ax.get_xlim()[1] for ax in row_of_axes])
-        for ax in row_of_axes:
-            ax.set_xlim(2e-3, 6e2)  # xmin, xmax)
-    ymin = min([ax.get_ylim()[0] for ax in axes.flatten()])
-    ymax = max([ax.get_ylim()[1] for ax in axes.flatten()])
-    for ax in axes.flatten():
-        ax.set_ylim(max(1e-5, ymin), ymax)
-
-    for ax in axes[-1, :]:
-        ax.set_xlabel('Execution time (s)')
-    for ax in axes[:, 0]:
-        ax.set_ylabel('Zenith Mean Abs. Error (º)')
-
-    axes[2, 2].legend(bbox_to_anchor=(1.1, 0.5), loc='center left',
-                      title='Algorithm (GHI MBE \u00b1 GHI CI 90%) W/m$^2$:')
-
-    pl.savefig('../assets/accu_speed_benchmark.png')
+    if filename is not None:
+        pl.savefig(filename)  # '../assets/exec_time_benchmark.png')
 
 
-if __name__ == '__main__':
+def print_bulk_errors(df, variables=None):
+    for col in df.columns:
+        df[col] = df[col].map('{:.3f}'.format)
+    df = (df.get(['mbe', 'std', 'p66', 'p90', 'mae', 'rmse'])
+          .rename(columns={'p66': '\u00b1CI66', 'p90': '\u00b1CI90'}))
 
-    # load JPL Horizons ephemeris...
-    ephemeris = load_jpl_ephemeris()
+    for variable in variables or df.index.get_level_values('variable').unique():
+        x = df.loc[variable].sort_values(by='rmse').rename_axis(variable, axis=0)
+        print(tabulate(x, headers='keys', tablefmt='mixed_outline'), end='\n')
+
+
+def run_benchmark(year, site_lat, site_lon, show_accuracy=False, show_exec_time=False):
+
+    logger.info(f'Performing benchmark tests for {year} at lat={site_lat} lon={site_lon}')
+
+    sign = lambda x: int(0.5*(1 + x / abs(x)))
+    lat_str = f'{abs(site_lat):07.4f}{("S", "N")[sign(site_lat)]}'.replace('.', 'p')
+    lon_str = f'{abs(site_lon):08.4f}{("W", "E")[sign(site_lon)]}'.replace('.', 'p')
+    out_filename = (Path(tempfile.gettempdir()) /
+                    f'jpl_ephemerides_{year}_{lat_str}_{lon_str}.txt')
+    logger.debug(f'JPL filename: {out_filename}')
+
+    if not out_filename.exists():
+        get_jpl_ephemeris(out_filename, f'{year}-01-01T00:00:00',
+                          f'{year+1}-01-01T00:00:00', site_lon,
+                          site_lat, site_elev=0., step_size=12)
+        logger.success(f'JPL data downloaded to {out_filename}')
+
+    # load JPL Horizons ephemeris file
+    ephemeris = read_jpl_ephemeris_file(out_filename)
     times = ephemeris.index
-    site_lon = ephemeris.pop('site_lon').unique().item()
-    site_lat = ephemeris.pop('site_lat').unique().item()
 
-    # append ephemeris calculated with pv-lib, sunwhere and SolTrack...
+    # append pvlib ephemeris
+    logger.info('Calculating and appending sunwhere and pvlib ephemerides')
     ephemeris = (
         ephemeris.pipe(add_level, 'jpl')
         .join(pvlib_ephemeris(times, site_lat, site_lon))
         .join(sunwhere_ephemeris(times, site_lat, site_lon))
-        .join(soltrack_ephemeris(times, site_lat, site_lon))
     )
 
-    # ephemeris.to_parquet('kk.parquet')
-    # ephemeris = pd.read_parquet('kk.parquet')
+    # ephemeris.to_parquet('/home/jararias/kk.parquet')
+    # ephemeris = pd.read_parquet('/home/jararias/kk.parquet')
 
-    # calculate ephemeris error scores...
-    error_metrics = get_bulk_ephemeris_errors(ephemeris)
-    print(error_metrics, '\n')
+    logger.info('EPHEMERIDES ERRORS (zenith and azimuth in arc-sec; ecf is unitless):')
+    logger.info('  The errors are evaluated against ephemerides from the the JPL Horizons')
+    logger.info('  service at https://ssd.jpl.nasa.gov/horizons/')
+    ephemeris_errors = get_bulk_ephemeris_errors(ephemeris)
+    # zenith and azimuth errors to arc-sec and ecf to milli...
+    variable_ordering = ephemeris_errors.index.get_level_values('variable').unique()
+    ephemeris_errors_arcsec = (ephemeris_errors.unstack(level='variable')
+                               .swaplevel(axis=1).sort_index(axis=1))
+    ephemeris_errors_arcsec['zenith'] *= 3600
+    ephemeris_errors_arcsec['azimuth'] *= 3600
+    ephemeris_errors_arcsec['ecf'] *= 1e3
+    ephemeris_errors_arcsec = ephemeris_errors_arcsec.rename(
+        columns={'ecf': 'ecf (x10\u207b\u00b3)'})
+    ephemeris_errors_arcsec = (
+        ephemeris_errors_arcsec.stack(level=0)
+        .swaplevel(axis=0).loc[['zenith', 'azimuth', 'ecf (x10\u207b\u00b3)']])
+    print_bulk_errors(ephemeris_errors_arcsec,
+                      variables=('zenith', 'azimuth', 'ecf (x10\u207b\u00b3)'))
+
+    logger.info('CLEAR-SKY IRRADIANCE ERRORS (in W m\u207b\u00b2):')
+    logger.info('  The errors are evaluated using the SPARTA clear-sky solar')
+    logger.info('  irradiance model with a default (standard) atmosphere and')
+    logger.info('  solar geometry from JPL Horizons (true reference) and ')
+    logger.info('  alternatively calculated with the solar position algorithms')
+    clearsky_errors = get_bulk_clearsky_errors(ephemeris)  # in W/m2
+    print_bulk_errors(clearsky_errors, variables=('ghi', 'dni', 'dif'))
 
     # plot the zenith and azimuth absolute error distributions...
-    plot_accuracy(ephemeris, sort_by=error_metrics.loc[('zenith', 'mae')])
+    if show_accuracy is True:
+        plot_accuracy(
+            ephemeris, sort_by=ephemeris_errors.loc[('zenith', 'mae')],
+            filename='/home/jararias/code/devel/sunwhere/assets/accuracy_benchmark.png'
+        )
 
-    # calculate the clear-sky irradiance difference scores...
-    cs_bulk_errors = get_bulk_clearsky_errors(ephemeris)  # in W/m2
-    print(cs_bulk_errors, '\n')
-
-    plot_exec_time_and_accuracy(ephemeris, cs_bulk_errors)
+    # plot_exec_time('/home/jararias/code/devel/sunwhere/assets/exec_time_benchmark.png')
+    if show_exec_time is True:
+        plot_exec_time()

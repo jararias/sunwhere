@@ -1,11 +1,19 @@
 ![python versions](https://img.shields.io/badge/python-3.8%2C3.9%2C3.10-blue.svg)
 
+TODO:
+- review docstrings in usecases and core
+- add header image (sun track)
+- move benchmark to main.py
+- add documentation to README.md (images with folding code in usage showcases)
+- add solar chart with optional analemas in main.py
+
+
 # Solar position for solar resource assessment
 
 *sunwhere* is tailored for typical applications in solar resource assessment. It provides the solar zenith and azimuth angles, the sun-earth's distance correction factor, and secondary parameters such as solar declination, equation of time, and sunrise and sunset hours, among others.
 
 ## Main features
-*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2] or Iqbal[^3] solar position algorithms, which provide three different levels of speed and accuracy to adapt the operation to the requirements of different applications.
+*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2], SolTrack[^3] or Iqbal[^4] solar position algorithms, which provide three different levels of speed and accuracy to adapt the operation to the requirements of different applications.
 
 Unlike other packages, *sunwhere* focuses on usage cases. Three of them are specifically considered:
 
@@ -21,13 +29,31 @@ Contrarily, other packages consider only the single-location case, having to ite
 
 [^1]: Reda I and Andreas A, 2003. Solar Position Algorithm for Solar Radiation Applications. 55 pp.; NREL Report No. TP-560-34302, Revised January 2008 [pdf](http://www.nrel.gov/docs/fy08osti/34302.pdf) [url](https://midcdmz.nrel.gov/spa/).
 [^2]: Blanco, M. et al. 2020. Updating the PSA sun position algorithm. Solar Energy, Vol. 212, pp. 339-341, and Blanco-Muriel, M. et al. 2001. Computing the solar vector. Solar Energy, Vol. 70, pp. 431-441 [url](https://doi.org/10.1016/j.solener.2020.10.084).
-[^3]: Iqbal, M., An introduction to solar radiation. Academic Press. 1983 [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
+[^3]: van der Sluys M and van Kan P, 2022. SolTrack: a free, fast and accurate routine to compute the position of the Sun [url](https://doi.org/10.48550/arXiv.2209.01557) [code](https://github.com/MarcvdSluys/SolTrack-Python)
+[^4]: Iqbal, M., An introduction to solar radiation. Academic Press. 1983 [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
 
 ## Installation notes
 
 ```sh
-python3 -m pip install git+https://github.com/jararias/sunwhere
+python3 -m pip install git+https://github.com/jararias/sunwhere@main
 ```
+
+If you want to run the *sunwhere*'s benchmark script, first, be sure that all dependences are installed:
+
+```sh
+python3 -m pip install "sunwhere[benchmark] @ git+https://github.com/jararias/sunwhere@main"
+```
+
+> [!NOTE]
+> See examples in https://pip.pypa.io/en/stable/cli/pip_install/#examples. See also [PEP 440](https://peps.python.org/pep-0440/#direct-references) for usage of @.
+
+Or, from a cloned local copy:
+
+```sh
+python3 -m pip install <path_to_local_copy>/.[benchmark]
+```
+
+
 
 ## Usage showcases
 
