@@ -1,14 +1,15 @@
 ![python versions](https://img.shields.io/badge/python-3.8%2C3.9%2C3.10-blue.svg)
 
 TODO:
-- review docstrings in usecases and core
-- add header image (sun track)
-- move benchmark to main.py
-- add documentation to README.md (images with folding code in usage showcases)
-- add solar chart with optional analemas in main.py
-
+- [x] review docstrings in usecases and core
+- [x] add header image (sun track)
+- [x] move benchmark to main.py
+- [ ] add documentation to README.md (images with folding code in usage showcases)
+- [ ] add solar chart with optional analemas in main.py
 
 # Solar position for solar resource assessment
+
+![header](assets/headerfig.png)
 
 *sunwhere* is tailored for typical applications in solar resource assessment. It provides the solar zenith and azimuth angles, the sun-earth's distance correction factor, and secondary parameters such as solar declination, equation of time, and sunrise and sunset hours, among others.
 

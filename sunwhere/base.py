@@ -48,20 +48,28 @@ class Sunpos:
             ValueError: if the inputs are not of the proper type or shape
         """
 
-        # cast to pandas datetimeindex to assert the validity
-        self._times = pd.to_datetime(
-            np.array(times, ndmin=1, dtype='datetime64[ns]')
-        )
+        # I need that self._times is timezone-aware and ndmin==1. To ensure
+        # ndmin==1, I must convert to a numpy datetime64, but numpy complains
+        # when dealing with timezone-aware times. Hence, first I use
+        # pd.to_datetime to retain the timezone of the input times (if
+        # timezone-aware) or assume UTC if the input times are naive. Then, I
+        # convert to a numpy array of datetime64[ns] with ndmin=1, but de-localizing
+        # the times to prevent numpy complains. Afterwards, I convert back to
+        # pandas using again pd.to_datetime and localize
+        _times = pd.to_datetime(times)
 
-        if self._times.tz is None:
-            self._times = self._times.tz_localize('UTC')
-
-        if (self._times.tz is None) or (not hasattr(self._times.tz, 'zone')):
+        if _times.tz is None:
             self._timezone = 'UTC'
+        elif hasattr(_times.tz, 'zone'):
+            self._timezone = _times.tz.zone
         else:
-            self._timezone = self._times.tz.zone
+            self._timezone = 'UTC'
 
-        self._times_utc = pd.to_datetime(times, utc=True)
+        self._times = pd.to_datetime(
+            np.array(_times.tz_localize(None), ndmin=1, dtype='datetime64[ns]')
+        ).tz_localize(self._timezone, ambiguous='infer')
+
+        self._times_utc = pd.to_datetime(self._times).tz_convert('UTC')
 
         self._latitude = np.array(latitude, ndmin=1)
         self._longitude = np.array(longitude, ndmin=1)
@@ -94,7 +102,7 @@ class Sunpos:
             assert self._zenith.shape == self._azimuth.shape == (n_times, n_lats)
             # xarray coordinates
             coords = {
-                'time': np.array(self._times, dtype='datetime64[ns]'),
+                'time': np.array(self._times.tz_localize(None), dtype='datetime64[ns]'),
                 'location': range(n_lats),
                 'latitude': ('location', self._latitude),
                 'longitude': ('location', self._longitude)}
@@ -118,7 +126,7 @@ class Sunpos:
             assert self._zenith.shape == self._azimuth.shape == (n_times, n_lats, n_lons)
             # xarray coordinates
             coords = {
-                'time': np.array(self._times, dtype='datetime64[ns]'),
+                'time': np.array(self._times.tz_localize(None), dtype='datetime64[ns]'),
                 'latitude': self._latitude, 'longitude': self._longitude}
             # xarray DataArrays
             kwargs = {'coords': {k: coords[k] for k in ['latitude']}, 'dims': ['latitude']}
@@ -142,7 +150,7 @@ class Sunpos:
             assert self._zenith.shape == self._azimuth.shape == (n_times,)
             # xarray coordinates
             coords = {
-                'time': np.array(self._times, dtype='datetime64[ns]'),
+                'time': np.array(self._times.tz_localize(None), dtype='datetime64[ns]'),
                 'latitude': ('time', self._latitude),
                 'longitude': ('time', self._longitude)}
             # xarray DataArrays
@@ -174,12 +182,12 @@ class Sunpos:
     @property
     def times(self):
         """Array of datetime64: Times where solar geometry is evaluated."""
-        return np.array(self._times, dtype='datetime64[ns]')
+        return self._times   # np.array(self._times, dtype='datetime64[ns]')
 
     @property
     def times_utc(self):
         """Array of datetime64: Universal coordinated times where solar geometry is evaluated."""
-        return np.array(self._times_utc, dtype='datetime64[ns]')
+        return self._times_utc  # np.array(self._times_utc, dtype='datetime64[ns]')
 
     @property
     def algorithm(self):
@@ -212,10 +220,11 @@ class Sunpos:
         dt64 = np.datetime64(1, 'ns')
 
         utc_f = xr.DataArray(
-            self.times_utc.astype('float64'),
-            coords={'time': self.times}, dims=['time'])
+            np.array(self._times_utc.tz_localize(None), dtype=dt64).astype('float64'),
+            coords={'time': np.array(self._times.tz_localize(None), dtype=dt64)},
+            dims=['time'])
 
-        tst_f = utc_f + (self.eot + 4*self.longitude) * 60  # seconds
+        tst_f = utc_f + (self.eot + 4*self.longitude) * 60 * 1e9  # nano-seconds
         return tst_f.astype(dt64).rename('true_solar_time').assign_attrs(
             description='True solar time (a.k.a. local apparent time, LAT)')
 
@@ -414,11 +423,12 @@ class Sunpos:
     def sunrise(self, units='deg'):
         """Sunrise.
 
-        Calculates the sunrise angle or sunrise hour (local apparent time, LAT)
+        Calculates the sunrise angle or sunrise time
 
         Args:
             units (str): `deg` for sunrise angle in degrees, `rad` for
-            sunrise angle in radians, and `hour` for sunrise hour (LAT)
+            radians, `tst` for true solar time sunrise, `utc` for UTC and
+            `local` for local time sunrise
 
         Returns:
             A xarray's DataArray
@@ -431,34 +441,63 @@ class Sunpos:
             [1] Eq. (1.5.4) in Iqbal, M., An Introduction to Solar Radiation,
             Academic Press, 1983.
         """
-        assert units in ('rad', 'deg', 'hour')
+        assert units in ('rad', 'deg', 'tst', 'utc', 'local')
 
         tanlat = np.tan(np.radians(self.latitude))
         tandec = np.tan(np.radians(self.declination))
         tantan = -tandec*tanlat
 
         domain = (tantan >= -1) & (tantan <= 1)
-        wsr = np.arccos(tantan.where(domain, other=np.nan))
+        wsr = np.arccos(tantan.where(domain, other=np.nan))  # radians
 
         if units == 'deg':
             wsr = np.degrees(wsr)
 
-        if units == 'hour':
+        if units in ('tst', 'utc', 'local'):
             wsr = 12. - (np.degrees(wsr)/15.)
+            delta_ns = wsr.copy(
+                data=(wsr*3600*1e9).astype('timedelta64[ns]'))
+            tst_d = self.true_solar_time.copy(
+                # if I convert directly from self.true_solar_time (which is
+                # a DataArray) to `datetime64[D]` xarray complains. It raises
+                # a UserWarning because I am downgrading the resolution from
+                # ns to D. Hence, I use `to_numpy()` to convert to a numpy
+                # array, then cast to `datetime64[D]`, then to `datetime64[ns]`
+                # and the I create the DataArray tst_d. All this is only to
+                # prevent that annoying UserWarning !!
+                data=(self.true_solar_time.to_numpy()
+                      .astype('datetime64[D]')
+                      .astype('datetime64[ns]'))
+            )
+            wsr = delta_ns + tst_d
+
+            if units in ('utc', 'local'):
+                delta_hr = self.eot + 4*self.longitude
+                delta_ns = delta_hr.copy(
+                    data=(delta_hr*60*1e9).astype('timedelta64[ns]'))
+                wsr = wsr - delta_ns
+
+                if units == 'local':
+                    utcoffset = xr.DataArray(
+                        self._times.tz_localize(None) - self._times_utc.tz_localize(None),
+                        coords={'time': wsr.coords['time']}, dims=('time',))
+                    wsr = wsr + utcoffset
 
         return wsr.rename('wsr').assign_attrs(
-            units={'deg': 'degrees', 'rad': 'radians'}.get(units, units),
+            units={'deg': 'degrees', 'rad': 'radians', 'tst': 'TST',
+                   'utc': 'UTC', 'local': self.timezone}.get(units, units),
             description='sunrise'
         )
 
     def sunset(self, units='deg'):
         """Sunset.
 
-        Calculates the sunset angle or sunset hour (local apparent time, LAT)
+        Calculates the sunset angle or sunset time
 
         Args:
             units (str): `deg` for sunset angle in degrees, `rad` for
-            sunset angle in radians, and `hour` for sunset hour (LAT)
+            radians, `tst` for true solar time sunset, `utc` for UTC and
+            `local` for local time sunset
 
         Returns:
             A xarray's DataArray
@@ -471,10 +510,12 @@ class Sunpos:
             [1] Eq. (1.5.4) in Iqbal, M., An Introduction to Solar Radiation,
             Academic Press, 1983.
         """
-        assert units in ('rad', 'deg', 'hour')
+        assert units in ('rad', 'deg', 'tst', 'utc', 'local')
 
-        wsr_hour = self.sunrise(units='hour')
-        wss = wsr_hour + self.daylight_length()
+        if units in ('tst', 'utc', 'local'):
+            wsr = self.sunrise(units)
+            dl_hr = self.daylight_length()
+            wss = wsr + dl_hr.copy(data=(dl_hr*3600*1e9).astype('timedelta64[ns]'))
 
         if units == 'deg':
             wss = (12. - wss)*15
@@ -483,7 +524,8 @@ class Sunpos:
             wss = np.radians((12. - wss)*15)
 
         return wss.rename('wss').assign_attrs(
-            units={'deg': 'degrees', 'rad': 'radians'}.get(units, units),
+            units={'deg': 'degrees', 'rad': 'radians', 'tst': 'TST',
+                   'utc': 'UTC', 'local': self.timezone}.get(units, units),
             description='sunset'
         )
 
@@ -515,36 +557,21 @@ class Sunpos:
             Academic Press, 1983.
         """
         # hour angle...
-        tst = self.true_solar_time
-        tst_f = tst.to_numpy()
-        _, _, D, h, m, _ = [tst_f.astype(f'M8[{t}]') for t in 'YMDhms']
-        hour = ((tst_f-D).astype('m8[h]')).astype(int)
-        minute = ((tst_f-h).astype('m8[m]')).astype(int)
-        second = ((tst_f-m).astype('m8[s]')).astype(int)
-        hour_tst = hour + minute / 60. + second / 3600.
-        omega_deg = xr.DataArray(15*(12-hour_tst), coords=tst.coords, dims=tst.dims)
+        tst = self.true_solar_time.to_numpy()
+        hour = self.true_solar_time.copy(
+            data=tst - tst.astype('datetime64[D]')
+        ).astype('float64') * 1e-9 / 3600
+        ha = hour.copy(data=15*(12-hour))
 
-        def cosr(a):
-            return np.cos(np.radians(a))
+        fcirc = lambda a: (np.cos(np.radians(a)), np.sin(np.radians(a)))  # noqa: E731
 
-        def sinr(a):
-            return np.sin(np.radians(a))
-
-        cosbeta = cosr(sfc_slope)
-        sinbeta = sinr(sfc_slope)
-        cosgamma = cosr(sfc_azimuth)
-        singamma = sinr(sfc_azimuth)
-        coslat = cosr(self.latitude)
-        sinlat = sinr(self.latitude)
-        cosdec = cosr(self.declination)
-        sindec = sinr(self.declination)
-        coshour = cosr(omega_deg)
-        sinhour = sinr(omega_deg)
-        return (
-            (sinlat*cosbeta - coslat*sinbeta*cosgamma)*sindec +
-            (coslat*cosbeta + sinlat*sinbeta*cosgamma)*cosdec*coshour +
-            cosdec*sinhour*sinbeta*singamma
-        ).rename('incidence').assign_attrs(
-            units='-',
-            description='cosine of the angle of incidence'
-        )
+        cosbeta, sinbeta = fcirc(sfc_slope)
+        cosgamma, singamma = fcirc(sfc_azimuth)
+        coslat, sinlat = fcirc(self.latitude)
+        cosdec, sindec = fcirc(self.dec)
+        coshour, sinhour = fcirc(ha)
+        coss = ((sinlat*cosbeta - coslat*sinbeta*cosgamma)*sindec +
+                (coslat*cosbeta + sinlat*sinbeta*cosgamma)*cosdec*coshour +
+                cosdec*sinhour*sinbeta*singamma)
+        return coss.rename('incidence').assign_attrs(
+            units='-', description='cosine of the angle of incidence')

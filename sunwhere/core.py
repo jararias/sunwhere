@@ -5,6 +5,7 @@ Date: June 2017
 Updated: June 2022 (Updated coefficients in PSA per Blanco et al., 2020)
 Updated: April 2022 (Added support for NaT values)
 Updated: April 2022 (Added support for numpy and numexpr. Removed multiproccesing support)
+...
 '''
 
 # pylint: disable=c-extension-no-member
@@ -79,18 +80,12 @@ def evaluate(times, latitude, longitude, algorithm='psa', ndim=1,
     algorithm: string, {`psa`, `nrel`, `iqbal`}
         Solar position algorithm. Default: `psa`.
         =nrel: NREL's Solar Position Algorithm [1] for the period from the year
-            -2000 to 6000. It is more accurate, but slower, than `psa` and `iqbal`.
-            Its expected uncertainty is +/- 0.0003 degrees.
+            -2000 to 6000. Its expected uncertainty is +/- 0.0003 degrees.
         =psa: Plataforma Solar de Almería's (PSA) algorithm [2] with updated coefficients
             for the period 2020-2050 [3] that reduce the average error to 0.0024 degrees.
-
-            as published in Blanco-Muriel et al. (2001), doi: 10.1016/S0038-
-            092X(00)00156-0 with updated coefficients as in Blanco et al (2020)
-            doi: 10.1016/j.solener.2020.10.084. It is more accurate than
-            `iqbal`. Its uncertainty compared to NREL's SPA is about 0.002 degrees
-            (not that bad, isn't so?), but it is much faster.
         =iqbal: algorithm described in Iqbal, M. [^4]. It is less accurate than
             `psa`, especially for solar azimuth angle, and only slightly faster.
+        =soltrack: similar in performance to psa [5]
     refraction: bool
         Atmospheric refraction correction.
     engine: string, {`numpy`, `numexpr`}
@@ -110,6 +105,9 @@ def evaluate(times, latitude, longitude, algorithm='psa', ndim=1,
     .. [3]: Blanco et al., 2020. Updating the PSA sun position algorithm. Solar Energy,
             212, 339-341. doi: 10.1016/j.solener.2020.10.084.
     .. [4]: Iqbal, M. An introduction to solar radiation. Academic Press, 1983.
+    .. [5]: van der Sluys M and van Kan P, 2022. SolTrack: a free, fast and accurate routine
+            to compute the position of the Sun doi: 10.48550/arXiv.2209.01557
+            https://github.com/MarcvdSluys/SolTrack-Python
     """
 
     if algorithm not in __ALGORITHMS__:
@@ -128,8 +126,10 @@ def evaluate(times, latitude, longitude, algorithm='psa', ndim=1,
     times_utc, latitude, longitude = validate.check_timelatlon(
         times, latitude, longitude, ndim, np.float64)
 
-    # hereinafter, times, latitude and longitude are rank-1
-    # ndarrays granting that:
+    # NOTE: times_utc is a naive datetime64[ns], in UTC
+
+    # NOTE: hereinafter, times_utc, latitude and longitude are
+    # 1-dim array such that:
     #   if ndim == 0, times.shape == latitude.shape == longitude.shape
     #   if ndim in [1, 2], latitude.shape == longitude.shape
 

@@ -407,7 +407,7 @@ def load_speed_tests(out_dir=None):
                 if not this_filename.exists():
                     df = pd.DataFrame(index=time_steps, columns=locations)
                     kwargs = {'desc': f'{library}.{algorithm}',
-                                'total': len(list(iter_dataframe(df)))}
+                              'total': len(list(iter_dataframe(df)))}
                     pbar = tqdm(iter_dataframe(df), **kwargs)
                     for n_times, n_locs in pbar:
                         pbar.set_postfix({'n_times': n_times, 'n_locs': n_locs})
@@ -462,7 +462,7 @@ def plot_exec_time(filename=None):
         #         .rename_axis('\n\nn_times', axis=0)), headers='keys', floatfmt=".3f"
         #     ), end='\n'
         # )
-            
+
         # rate = 1 / df  # Mill. ephemerides / second
         # print(
         #     tabulate(
@@ -490,7 +490,7 @@ def run_benchmark(year, site_lat, site_lon, show_accuracy=False, show_exec_time=
 
     logger.info(f'Performing benchmark tests for {year} at lat={site_lat} lon={site_lon}')
 
-    sign = lambda x: int(0.5*(1 + x / abs(x)))
+    sign = lambda x: int(0.5*(1 + x / abs(x)))  # noqa: E731
     lat_str = f'{abs(site_lat):07.4f}{("S", "N")[sign(site_lat)]}'.replace('.', 'p')
     lon_str = f'{abs(site_lon):08.4f}{("W", "E")[sign(site_lon)]}'.replace('.', 'p')
     out_filename = (Path(tempfile.gettempdir()) /
@@ -523,7 +523,6 @@ def run_benchmark(year, site_lat, site_lon, show_accuracy=False, show_exec_time=
     logger.info('  service at https://ssd.jpl.nasa.gov/horizons/')
     ephemeris_errors = get_bulk_ephemeris_errors(ephemeris)
     # zenith and azimuth errors to arc-sec and ecf to milli...
-    variable_ordering = ephemeris_errors.index.get_level_values('variable').unique()
     ephemeris_errors_arcsec = (ephemeris_errors.unstack(level='variable')
                                .swaplevel(axis=1).sort_index(axis=1))
     ephemeris_errors_arcsec['zenith'] *= 3600

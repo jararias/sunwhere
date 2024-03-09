@@ -85,6 +85,12 @@ DataArray: cosine of solar zenith angle.
 
 ---
 
+#### <kbd>property</kbd> dec
+
+DataArray: solar declination, in degrees. Alias for `declination`. 
+
+---
+
 #### <kbd>property</kbd> declination
 
 DataArray: solar declination, in degrees. 
@@ -189,7 +195,7 @@ DataArray: solar zenith angle, in degrees [0, 180].
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L345"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L362"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `airmass`
 
@@ -233,7 +239,7 @@ Calculates the relative optical air mass of the atmosphere according to various 
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L482"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L533"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `daylight_length`
 
@@ -252,7 +258,7 @@ Daylight length, in hours.
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L289"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L306"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `eth`
 
@@ -295,7 +301,7 @@ Calculates the extraterrestrial horizontal solar irradiance, in W m^-2, with opt
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L495"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L546"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `incidence`
 
@@ -323,7 +329,7 @@ Calculates the cosine of the solar incidence angle.
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L406"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L423"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `sunrise`
 
@@ -333,13 +339,13 @@ sunrise(units='deg')
 
 Sunrise. 
 
-Calculates the sunrise angle or sunrise hour (local apparent time, LAT) 
+Calculates the sunrise angle or sunrise time 
 
 
 
 **Args:**
  
- - <b>`units`</b> (str):  `deg` for sunrise angle in degrees, `rad` for sunrise angle in radians, and `hour` for sunrise hour (LAT) 
+ - <b>`units`</b> (str):  `deg` for sunrise angle in degrees, `rad` for radians, `tst` for true solar time sunrise, `utc` for UTC and `local` for local time sunrise 
 
 
 
@@ -361,7 +367,7 @@ Calculates the sunrise angle or sunrise hour (local apparent time, LAT)
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L446"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L493"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `sunset`
 
@@ -371,13 +377,13 @@ sunset(units='deg')
 
 Sunset. 
 
-Calculates the sunset angle or sunset hour (local apparent time, LAT) 
+Calculates the sunset angle or sunset time 
 
 
 
 **Args:**
  
- - <b>`units`</b> (str):  `deg` for sunset angle in degrees, `rad` for sunset angle in radians, and `hour` for sunset hour (LAT) 
+ - <b>`units`</b> (str):  `deg` for sunset angle in degrees, `rad` for radians, `tst` for true solar time sunset, `utc` for UTC and `local` for local time sunset 
 
 
 

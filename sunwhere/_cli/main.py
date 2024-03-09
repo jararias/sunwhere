@@ -4,10 +4,7 @@ import typer
 import pylab as pl
 
 from .position import calculate_position
-from .benchmark import (
-    run_benchmark,
-    add_level
-)
+from .benchmark import run_benchmark
 
 
 MY_SITE_LAT = 36.949
@@ -23,11 +20,12 @@ def at(
     site_lat: float = typer.Argument(MY_SITE_LAT, min=-90, max=90, help="latitude [-90, 90]"),
     site_lon: float = typer.Argument(MY_SITE_LON, min=-180, max=180, help="longitude [-180, 180)"),
     algorithm: str = typer.Option('psa', help="solar position algorithm"),
-    refraction: bool = typer.Option(True, help="consider atmospheric refraction")
+    refraction: bool = typer.Option(True, help="consider atmospheric refraction"),
+    timezone: str = typer.Option('UTC', help="time zone"),
 ):
 
     try:
-        calculate_position(time, site_lat, site_lon, algorithm, refraction)
+        calculate_position(time, site_lat, site_lon, algorithm, refraction, timezone)
     except Exception as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1)
@@ -57,4 +55,4 @@ def chart():
 
 if __name__ == '__main__':
 
-    main()
+    app()

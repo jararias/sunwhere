@@ -26,7 +26,7 @@ def check_timelatlon(times, latitude, longitude, ndim, dtype=None, dt64=None):
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
     times = np.array(
-        pd.to_datetime(times, utc=True).to_numpy(),
+        pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime
         ndmin=1, dtype=dt64)
     if times.ndim > 1:
         raise ValueError(
