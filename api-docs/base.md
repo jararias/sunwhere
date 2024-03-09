@@ -1,8 +1,8 @@
 <!-- markdownlint-disable -->
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L0"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L0"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
-# <kbd>module</kbd> `base.py`
+# <kbd>module</kbd> `_base.py`
 
 
 
@@ -16,7 +16,7 @@ Container class for [sunwhere](https://github.com/jararias/sunwhere) outputs.
 
 Do not instantiate!! 
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L17"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L17"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `__init__`
 
@@ -195,7 +195,7 @@ DataArray: solar zenith angle, in degrees [0, 180].
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L362"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L362"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `airmass`
 
@@ -239,7 +239,7 @@ Calculates the relative optical air mass of the atmosphere according to various 
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L533"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L532"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `daylight_length`
 
@@ -258,7 +258,7 @@ Daylight length, in hours.
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L306"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L306"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `eth`
 
@@ -301,7 +301,7 @@ Calculates the extraterrestrial horizontal solar irradiance, in W m^-2, with opt
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L546"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L545"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `incidence`
 
@@ -329,7 +329,7 @@ Calculates the cosine of the solar incidence angle.
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L423"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L423"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `sunrise`
 
@@ -367,7 +367,7 @@ Calculates the sunrise angle or sunrise time
 
 ---
 
-<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/base.py#L493"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
+<a href="https://github.com/jararias/sunwhere/blob/master/sunwhere/_base.py#L492"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square" /></a>
 
 ### <kbd>function</kbd> `sunset`
 

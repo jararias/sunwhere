@@ -4,8 +4,8 @@
 import numpy as np
 import pandas as pd
 
-from .core import evaluate
-from .base import Sunpos
+from ._core import evaluate
+from ._base import Sunpos
 from .utils.validate import check_dimensions
 
 

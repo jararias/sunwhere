@@ -1,10 +1,10 @@
 
 import typer
 
-import pylab as pl
+# import pylab as pl
 
 from .position import calculate_position
-from .benchmark import run_benchmark
+# from .benchmark import run_benchmark
 
 
 MY_SITE_LAT = 36.949
@@ -31,21 +31,21 @@ def at(
         raise typer.Exit(code=1)
 
 
-@app.command()
-def benchmark(
-    year: int = typer.Argument(2024, help="benchmark year"),
-    site_lat: float = typer.Argument(MY_SITE_LAT, min=-90, max=90, help="latitude [-90, 90]"),
-    site_lon: float = typer.Argument(MY_SITE_LON, min=-180, max=180, help="longitude [-180, 180)"),
-    plot_accuracy: bool = typer.Option(False, help="show plot of solar position algorithms accuracy"),
-    plot_exec_time: bool = typer.Option(False, help="show plot of total execution times")
-):
-    try:
-        run_benchmark(year, site_lat, site_lon, plot_accuracy, plot_exec_time)
-        if plot_accuracy or plot_exec_time:
-            pl.show()
-    except Exception as exc:
-        typer.echo(str(exc))
-        raise typer.Exit(code=1)
+# @app.command()
+# def benchmark(
+#     year: int = typer.Argument(2024, help="benchmark year"),
+#     site_lat: float = typer.Argument(MY_SITE_LAT, min=-90, max=90, help="latitude [-90, 90]"),
+#     site_lon: float = typer.Argument(MY_SITE_LON, min=-180, max=180, help="longitude [-180, 180)"),
+#     plot_accuracy: bool = typer.Option(False, help="show plot of solar position algorithms accuracy"),
+#     plot_exec_time: bool = typer.Option(False, help="show plot of total execution times")
+# ):
+#     try:
+#         run_benchmark(year, site_lat, site_lon, plot_accuracy, plot_exec_time)
+#         if plot_accuracy or plot_exec_time:
+#             pl.show()
+#     except Exception as exc:
+#         typer.echo(str(exc))
+#         raise typer.Exit(code=1)
 
 
 @app.command()

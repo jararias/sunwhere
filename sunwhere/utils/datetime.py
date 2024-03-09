@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from ..core import evaluate
+from .._core import evaluate
 
 
 def true_solar_time(times_utc, longitude):

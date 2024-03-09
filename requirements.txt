@@ -1,5 +1,10 @@
 loguru
+tabulate
+tqdm
+typer
+python-dateutil
 numexpr
 pandas
 xarray
 numpy
+matplotlib
