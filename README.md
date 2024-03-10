@@ -6,6 +6,7 @@ TODO:
 - [x] move benchmark to main.py
 - [ ] add documentation to README.md (images with folding code in usage showcases)
 - [ ] add solar chart with optional analemas in main.py
+- [ ] comprobar la descarga del csv del benchmark en repo publico
 
 # Solar position for solar resource assessment
 
@@ -14,15 +15,15 @@ TODO:
 *sunwhere* is tailored for typical applications in solar resource assessment. It provides the solar zenith and azimuth angles, the sun-earth's distance correction factor, and secondary parameters such as solar declination, equation of time, and sunrise and sunset times, among others.
 
 ## Main features
-*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2], SolTrack[^3] or Iqbal[^4] solar position algorithms, which provide alternative levels of speed and accuracy for each application's requirements.
+*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2], SolTrack[^3] or Iqbal[^4] solar position algorithms (or SPAs), which provide alternative levels of speed and accuracy for each application's requirements.
 
-*sunwhere* focuses on usage cases to optimize the computing performance. Three cases are specifically considered that hopefully encompass most practical situations:
+*sunwhere* focuses on usage cases to optimize the computing performance. Three cases are specifically considered that hopefully cover most practical situations:
 
-- [_sites_](./api-docs/usecases.md#function-sites), intended to evaluate the solar position across any number of arbitrary locations throughout a common time grid at once.
+- [_sunwhere.sites_](./api-docs/usecases.md#function-sites), intended to evaluate the solar position across any number of arbitrary locations throughout a common time grid.
 
-- [_regular_grid_](./api-docs/usecases.md#function-regular_grid), intended for lon-lat regular grids throughout a common time grid.
+- [_sunwhere.regular_grid_](./api-docs/usecases.md#function-regular_grid), intended for lon-lat regular grids throughout a common time grid.
 
-- [_transect_](./api-docs/usecases.md#function-transect), intended for changing locations over time (e.g., scanning path of a satellite sensor).
+- [_sunwhere.transect_](./api-docs/usecases.md#function-transect), intended for changing locations over time (e.g., scanning path of a satellite sensor).
 
 Conversely, other packages only consider single-location calculations, having to iterate over each location in multi-site evaluations.
 
@@ -58,7 +59,7 @@ python3 -m pip install <path_to_local_copy>/.[benchmark]
 
 ### Case 1. sunwhere.sites
 
-It requires a 1-dim sequence of times (it they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. They can also be scalars for single-location calculations. The latitude and longitude arrays must have exactly the same length. They are the geographic coordinates of the locations where solar position will be evaluated. The following image shows the solar zenith and elevation angles produced at 5 sites randomly selected.
+It requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. They can also be scalars for single-location calculations. _The latitude and longitude arrays must have exactly the same length_. They are the geographic coordinates of the locations where solar position will be evaluated. The following image shows the solar zenith and elevation angles produced at 5 sites randomly selected.
 
 ![case1: sites](assets/case1_sites.png)
 
@@ -120,7 +121,7 @@ pl.show()
 
 ### Case 2. sunwhere.regular_grid
 
-As `sunwhere.sites`, `sunwhere.regular_grid` requires a 1-dim sequence of times (it they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. However, the length of the latitude and longitude arrays does not have to be necessarily the same. Now, they represent the rectangular coordinates of the lon-lat regular grid. The following image shows the solar zenith angle (left column), the cosine of solar zenith angle, which is important for the evaluation of solar irradiance (middle column) and the cosine of the incidence angle for a plane of array with an inclination of 30&#x00b0; and an azimuth of 60&#x00b0;. The calculations are performed over a regular grid with 1-deg cellsize.
+As `sunwhere.sites`, `sunwhere.regular_grid` requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. However, the length of the latitude and longitude arrays does not have to be necessarily the same. Now, they represent the rectangular coordinates of the lon-lat regular grid. The following image shows the solar zenith angle (left column), the cosine of solar zenith angle, which is important for the evaluation of solar irradiance (middle column), and the cosine of the incidence angle for a plane of array with an inclination of 30&#x00b0; and an azimuth of 60&#x00b0;. The calculations are performed over a regular grid with 1&#x00b0; cellsize.
 
 ![case2: sites](assets/case2_regular_grid.png)
 
