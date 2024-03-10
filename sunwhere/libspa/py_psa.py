@@ -136,8 +136,8 @@ def _sunpos_one_dimensional(unixtime, longitude, latitude, with_refraction):
         # adapted from the NREL's SPA..
         sun_elev = HALFPI - zenith
         A = 1  # assumed A=1: A = (pressure / 1010.) * (283 / (273+temperature))
-        refr_corr = A * 1.02/(60*np.tan(sun_elev + 3.1376e-3 / (sun_elev + 8.9186e-2)))
-        zenith = HALFPI - np.where(sun_elev >= 0.83337, sun_elev + refr_corr, sun_elev)
+        refr_corr = A * 1.7802e-2/(60*np.tan(sun_elev + 3.1376e-3 / (sun_elev + 8.9186e-2)))
+        zenith = HALFPI - np.where(sun_elev >= -1.4545e-2, sun_elev + refr_corr, sun_elev)
 
     azimuth = np.arctan2(-sinhour, tandec*coslat - sinlat*coshour)
     azimuth = np.where(azimuth < 0., azimuth + PI, azimuth - PI)
@@ -226,7 +226,7 @@ def _sunpos_three_dimensional(unixtime, longitude, latitude, with_refraction):
         sun_elev = HALFPI - zenith
         A = 1  # assumed A=1: A = (pressure / 1010.) * (283 / (273+temperature))
         refr_corr = A * 1.7802e-2/(60*np.tan(sun_elev + 3.1376e-3 / (sun_elev + 8.9186e-2)))
-        zenith = HALFPI - np.where(sun_elev >= 1.4545e-2, sun_elev + refr_corr, sun_elev)
+        zenith = HALFPI - np.where(sun_elev >= -1.4545e-2, sun_elev + refr_corr, sun_elev)
 
     azimuth = np.arctan2(-sinhour, tandec*coslat - sinlat*coshour)
     azimuth = np.where(azimuth < 0., azimuth + PI, azimuth - PI)

@@ -1,12 +1,10 @@
 ![python versions](https://img.shields.io/badge/python-3.8%2C3.9%2C3.10-blue.svg)
 
 TODO:
-- [x] review docstrings in usecases and core
-- [x] add header image (sun track)
-- [x] move benchmark to main.py
-- [ ] add documentation to README.md (images with folding code in usage showcases)
+- [x] add documentation to README.md (images with folding code in usage showcases)
 - [ ] add solar chart with optional analemas in main.py
-- [ ] comprobar la descarga del csv del benchmark en repo publico
+- [ ] download of csv benchmark in public repo
+- [ ] explanation of azimuth
 
 # Solar position for solar resource assessment
 
@@ -59,7 +57,7 @@ python3 -m pip install <path_to_local_copy>/.[benchmark]
 
 ### Case 1. sunwhere.sites
 
-It requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. They can also be scalars for single-location calculations. _The latitude and longitude arrays must have exactly the same length_. They are the geographic coordinates of the locations where solar position will be evaluated. The following image shows the solar zenith and elevation angles produced at 5 sites randomly selected.
+It requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. They can also be scalars for single-location calculations. **The latitude and longitude arrays must have exactly the same length**. They are the geographic coordinates of the locations where solar position will be evaluated. The following image shows the solar zenith and elevation angles produced at 5 sites randomly selected.
 
 ![case1: sites](assets/case1_sites.png)
 
@@ -172,27 +170,179 @@ pl.show()
 
 ### Case 3. sunwhere.transect
 
+As in the former cases, `sunwhere.transect` requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. In this case, however, **the length of the three arrays must be the same**. The following figure exemplifies some potential uses of `sunwhere.transect`.
+
+![case3: sites](assets/case3_transect.png)
+
+<details>
+
+<summary>Python's code</summary>
+
 ```python
+import numpy as np
+import pylab as pl
+import pandas as pd
+import cartopy.crs as ccrs
+
+import sunwhere
+
+
+def build_transect_path(time0, lat0, lon0, t_sim, dt, vx, vy):
+    # vx and vy are velocities in degrees/hour
+    time1 = time0 + pd.Timedelta(t_sim)
+    times = pd.date_range(time0, time1, freq=pd.Timedelta(dt), tz='UTC')
+    dlat = vy * (times.freq / pd.Timedelta(1, 'H'))
+    lats = lat0 + dlat*np.arange(len(times))
+    dlon = vx * (times.freq / pd.Timedelta(1, 'H'))
+    lons = lon0 + dlon*np.arange(len(times))
+    lons[lons < -180] = lons[lons < -180] % 180
+    lons[lons >= 180] = lons[lons >= 180] % -180
+    return times, lats, lons
+
+
+def draw_transect(sunpos, axpos):
+    azimuth = sunpos.azimuth
+    times = azimuth.coords['time']
+    lats = azimuth.coords['latitude']
+    lons = azimuth.coords['longitude']
+    elevation = sunpos.elevation
+
+    ax = pl.subplot(axpos[0], projection=ccrs.Robinson())
+    ax.scatter(lons, lats, marker='.', s=2,
+               transform=ccrs.PlateCarree(),
+               c=np.array(times, dtype='float64'))
+    ax.coastlines(lw=0.5, color='0.5')
+    ax.set_global()
+
+    elevation.plot(ax=pl.subplot(axpos[1]))
+    pl.ylim(-90, 90)
+
+    azimuth.plot(ax=pl.subplot(axpos[2]))
+    pl.ylim(-180, 180)
+
+
+# starting time and location
+time0 = pd.Timestamp('2023-07-15 12')
+lat0, lon0 = -40., -120.
+ers = 360/24  # earth rotation speed, in degrees/hour
+
+# draw some results...
+pl.rcParams['axes.titlesize'] = 'small'
+pl.rcParams['axes.labelsize'] = 'small'
+pl.rcParams['xtick.labelsize'] = 'small'
+pl.rcParams['ytick.labelsize'] = 'small'
+pl.figure(figsize=(12, 6), layout='constrained')
+
+times, lats, lons = build_transect_path(
+    time0, 40, 0, '23H', '10S', -ers, 0.)
+sw = sunwhere.transect(times, lats, lons)  # algorithm='psa' refraction=True
+draw_transect(sw, (331, 334, 337))
+pl.subplot(331).set_title('Westward transect')
+
+times, lats, lons = build_transect_path(
+    time0, -40, 0, '23H', '10S', ers, 0.)
+sw = sunwhere.transect(times, lats, lons)  # algorithm='psa' refraction=True
+draw_transect(sw, (332, 335, 338))
+pl.subplot(332).set_title('Eastward transect')
+
+times, lats, lons = build_transect_path(
+    time0, -40, -120, '10H', '10S', 1.2*ers, 0.8*ers)
+sw = sunwhere.transect(times, lats, lons)  # algorithm='psa' refraction=True
+draw_transect(sw, (333, 336, 339))
+pl.subplot(333).set_title('SW-NE transect')
+
+pl.show()
 ```
+</details>
 
 ### Case 4. Command line interface
 
+_sunwhere_ comes also with CLI utilities. See:
+
 ```sh
-sunwhere at --help  # to calculate solar position
-sunwhere chart --help  # to produce solar charts
+sunwhere --help
 ```
 
 ## Benchmark: which SPA to choose?
 
-que criterio? evaluamos las efemerides? o quiza es mejor la radiacion? como hacerlo? con que comparamos las efemerides? que pegas tiene usar un modelo de cielo despejado?
-importa la velocidad del algoritmo? que paquetes python hay disponibles contra los que compararar?
+_sunwhere_ is equipped with 4 solar position algorithms (abbreviately, SPAs) to perform the solar position calculations, namely: `nrel`, `spa`, `soltrack` and `iqbal`. Hence, a pertinent question in the _sunwhere_'s context is which SPA to choose for the calculations.
 
-### Speed benchmark
-:construction_worker:
+There are various factors to account for when one has to decide which SPA to use. Although the accuracy of the ephemerides appears the most obvious one, it might not be always the most relevant. For instance, when working with solar resource assessment, the solar irradiance accuracy is probably more important and, in very large datasets, even the computation times can be determinant to choose one or another. In the analysis that follows, I try to shed some light on these questions.
 
-### Accuracy benchmark
+### Ephemerides accuracy
+
+As the truth reference to evaluate the accuracy of the ephemerides calculated with _sunwhere_, I use the [JPL Horizons service](https://ssd.jpl.nasa.gov/horizons/). In particular, I have retrieved the ephemerides at (36.949N, 3.822W) for the whole year 2024 with 12-min time step. In addition, I have included here the ephemerides calculated with other python packages, such as [pvlib](https://pvlib-python.readthedocs.io/en/stable/) and [sg2](https://github.com/gschwind/sg2)[^5]. The following plot shows the distributions of the absolute differences of the solar zenith and azimuth angles against those obtained from the JPL Horizons service.
+
+[^5]: Blanc P. and L. Wald, 2012. The SG2 algorithm for a fast and accurate computation of the position of the sun for multi-decadal time period. Solar Energy Vol. 88, pp. 3072-3083 [url](https://doi.org/10.1016/j.solener.2012.07.018).
 
 ![accuracy benchmark](assets/accuracy_benchmark.png)
+
+The SPAs seem to be organized in three classes. From the least to the most accurates: IQBAL alone in one group, PSA, SOLTRACK and EPHEMERIS, in another group, and NREL and PYEPHEM, in another group, with SG2 somewhere between the two most accurate groups. (Note the logarithmic scale!) The zenith and azimuth errors are similar in any case. The table below shows numerical results for the solar zenith angle errors. The rows are organized by increasing RMSE. The columns ±CI66 and ±CI90 are the symmetric intervals around MBE that encompass 66% and 90% of the errors, respectively.
+
+| zenith (units: arc-sec)       |     mbe |     std |   ±CI66 |    ±CI90 |     mae |    rmse |
+|:------------------------------|--------:|--------:|--------:|---------:|--------:|--------:|
+| sunwhere's NREL (numexpr)     | 0.024   | 0.180   | 0.166   | 0.299    |   0.142 |   0.182 |
+| pvlib's NREL (numba)          | 0.024   | 0.181   | 0.166   | 0.299    |   0.143 |   0.182 |
+| pvlib's NREL (numpy)          | 0.024   | 0.181   | 0.166   | 0.299    |   0.143 |   0.182 |
+| pvlib's PYEPHEM               | -0.012  | 0.306   | 0.294   | 0.514    |   0.241 |   0.306 |
+| sg2's SG2 (c++)               | 0.022   | 0.576   | 0.553   | 0.980    |   0.462 |   0.577 |
+| sunwhere's PSA (numexpr)      | 0.162   | 4.227   | 3.758   | 7.282    |   3.198 |   4.230 |
+| sunwhere's PSA (numpy)        | 0.162   | 4.228   | 3.753   | 7.280    |   3.201 |   4.231 |
+| sunwhere's SOLTRACK (numexpr) | -0.043  | 6.875   | 6.586   | 11.834   |   5.422 |   6.876 |
+| sunwhere's SOLTRACK (numpy)   | -0.043  | 6.876   | 6.586   | 11.835   |   5.422 |   6.876 |
+| pvlib's EPHEMERIS             | -7.271  | 8.386   | 8.584   | 13.690   |   8.753 |  11.100 |
+| sunwhere's IQBAL (numexpr)    | -15.341 | 732.795 | 805.551 | 1117.969 | 648.974 | 732.948 |
+| sunwhere's IQBAL (numpy)      | -15.341 | 732.795 | 805.551 | 1117.969 | 648.974 | 732.948 |
+
+These results are nice but tell us nothing about the SPA that we should use to evaluate solar radiation. Moreover, there might be one or more SPAs that we probably shouldn't use (perhaps, IQBAL), or maybe, even IQBAL is more than enough, despite its large errors. For this reason, I show next a similar analysis that focuses on the impact of these errors in the evaluation of solar radiation.
+
+### Solar radiation accuracy
+
+I use the SPARTA[^6] clear-sky solar radiation model to estimate the impact that the ephemerides uncertainties have in the modelled solar radiation. This impact might be important in state-of-the-art clear-sky models, given their high performance. Should clouds were included in the modelling, the expected errors of the results would likely grow to the point that errors associated to solar position inaccuracies would be negligible.
+
+[^6]: Ruiz-Arias, JA, 2023. SPARTA: Solar parameterization for the radiative transfer of the cloudless atmosphere. Renewable and Sustainable Energy Reviews, Vol. 188, 113833 [url](https://doi.org/10.1016/j.rser.2023.113833)
+
+To estimate the errors, I evaluate the clear-sky solar irradiance with SPARTA using the JPL Horizons ephemerides and compute the differences against the same simulations, but alternatively using the ephemerides calculated with the SPAs. I assume an average (kind of rural) clear-sky atmosphere. The results are shown in the tables below.
+
+| GHI (units: W m&#x207b;&#x00b2;) |    mbe |   std |   ±CI66 |   ±CI90 |   mae |   rmse |
+|:---------|-------:|------:|--------:|--------:|------:|-------:|
+| SG2      | -0.027 | 0.024 |   0.025 |   0.039 | 0.027 |  0.036 |
+| NREL     | -0.027 | 0.024 |   0.025 |   0.040 | 0.027 |  0.036 |
+| PSA      | -0.029 | 0.041 |   0.038 |   0.063 | 0.036 |  0.050 |
+| SolTrack | -0.028 | 0.045 |   0.044 |   0.074 | 0.041 |  0.053 |
+| IQBAL    |  0.031 | 2.922 |   3.257 |   4.734 | 2.483 |  2.922 |
+
+| DNI (units: W m&#x207b;&#x00b2;) |    mbe |   std |   ±CI66 |   ±CI90 |   mae |   rmse |
+|----------|--------|-------|---------|---------|-------|--------|
+| SG2      | -0.031 | 0.021 |   0.024 |   0.033 | 0.031 |  0.037 |
+| NREL     | -0.031 | 0.021 |   0.025 |   0.032 | 0.031 |  0.037 |
+| PSA      | -0.032 | 0.044 |   0.043 |   0.072 | 0.043 |  0.055 |
+| SolTrack | -0.032 | 0.052 |   0.049 |   0.084 | 0.049 |  0.061 |
+| IQBAL    |  0.021 | 2.851 |   2.139 |   4.942 | 2.024 |  2.851 |
+
+| DIF (units: W m&#x207b;&#x00b2;) |    mbe |   std |   ±CI66 |   ±CI90 |   mae |   rmse |
+|----------|--------|-------|---------|---------|-------|--------|
+| SG2      | -0.006 | 0.004 |   0.005 |   0.006 | 0.006 |  0.007 |
+| NREL     | -0.006 | 0.004 |   0.005 |   0.006 | 0.006 |  0.007 |
+| PSA      | -0.006 | 0.008 |   0.008 |   0.013 | 0.008 |  0.010 |
+| SolTrack | -0.006 | 0.009 |   0.009 |   0.016 | 0.009 |  0.011 |
+| IQBAL    |  0.004 | 0.522 |   0.494 |   0.870 | 0.407 |  0.522 |
+
+These results clearly show that **all SPAs, except IQBAL, are perfectly usable to compute solar radiation** because all of them induce errors below 1 W m&#x207b;&#x00b2;, way below the expected observational errors in solar radiation.
+
+Hence, **computing time surfaces as a key feature to decide which is the best SPA**.
+
+### Computing time
+
+The following plots summarize the tests performed in three different situations in my modest [6-core](https://www.intel.la/content/www/xl/es/products/sku/196448/intel-core-i710710u-processor-12m-cache-up-to-4-70-ghz/specifications.html), 32 GB RAM, 6.1.71-1-MANJARO (64 bits), desktop computer. Every SPA run is repeated 3 times and I take the average total simulation time.
+
+The first case (left plot) is for single-location calculations, for time series of several lenghts from 1 to 500,000 time steps. (50,000 time steps is about one month of 1-min time steps and 500,000 is about one year of 1-min time steps.) Note the logarithmic color scale. If, according to the solar irradiance analysis above, we don't distinguish between SPAs other than IQBAL, the fastest are the _sunwhere_'s _numexpr_ PSA and SolTrack. However, should we need higher accuracy, then NREL (or even SG2) should be considered. Then, the fastest options would be the pvlib's numba NREL or SG2. However, the former requires on-flight compilation which may discourage its use for short time series. In any case, the total execution times here are so low that, in practice, nearly all SPAs are equivalent.
+
+The second case (middle plot) is for multi-site calculations (100 sites) over a common time grid. Here, _sunwhere_ starts shining over all other SPAs, especially for long time series, when the execution times are not negligible (in contrast with the single-location case). For instance, the _sunwhere_'s _numexpr_ NREL is about 11 times faster than the pvlib's _numba_ NREL and about 80 times faster than the pvlib's _numpy_ NREL. SG2 has also an outstanding performance, only 2 seconds slower. However, the _sunwhere_'s _numexpr_ PSA is much more faster, since it requires only 1.7 seconds to compute the ephemerides for the the 100 locations over a time grid of 500,000 time steps.
+
+The results are even more favorable to _sunwhere_ in the third case (right plot) which evaluates the execution times in a modest-size 10x10 regular grid. The results would be even more favorable for _sunwhere_ for a greater number of grid cells. 
+
+![accuracy benchmark](assets/exec_time_benchmark.png)
 
 ### References
 

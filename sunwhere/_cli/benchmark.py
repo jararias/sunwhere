@@ -16,8 +16,9 @@ import pandas as pd
 import seaborn as sns
 
 import pvlib.solarposition as pvsol
-from soltrack import SolTrack
 # !python3 -m pip install git+https://github.com/jararias/SolTrack
+from soltrack import SolTrack
+from sg2 import sun_position as sg2_solpos
 from pysparta import SPARTA
 
 import sunwhere
@@ -90,6 +91,26 @@ def soltrack_ephemeris(times, lat, lon, **kwargs):
     st.compute_position()
     st_ephemeris = {'zenith': 90. - st.altitude, 'azimuth': st.azimuth, 'ecf': 1/st.distance**2}
     return add_level(pd.DataFrame(index=times, data=st_ephemeris), 'soltrack.SolTrack')
+
+
+def sg2_ephemeris(times, lats, lons):
+    _lons = np.array(lons, ndmin=1, dtype='float64')
+    _lats = np.array(lats, ndmin=1, dtype='float64')
+    geopoints = np.c_[_lons, _lats, np.zeros(len(_lats))]
+    times = np.array(times.tz_localize(None), ndmin=1, dtype='datetime64[ns]')
+    outputs = ["geoc.EOT", "geoc.R", "topoc.delta", "topoc.gamma_S0", "topoc.alpha_S"]
+    sp = sg2_solpos(geopoints, times, outputs)
+    # eot = (sp.geoc.EOT/np.pi - np.floor(0.5 + sp.geoc.EOT/np.pi))*12*60
+    return pd.DataFrame(
+        index=times,
+        data={
+            'zenith': 90. - np.degrees(sp.topoc.gamma_S0.T).ravel(),
+            'azimuth': np.degrees(sp.topoc.alpha_S.T).ravel() - 180,
+            # 'dec': np.degrees(sp.topoc.delta.T).ravel(),
+            'ecf': 1 / (sp.geoc.R**2).ravel(),
+            # 'eot': eot.ravel(),  # minutes
+        }
+    ).rename_axis('time_utc', axis=0).tz_localize('UTC')
 
 
 def add_clearsky_irradiance(ephemeris, **kwargs):
@@ -166,6 +187,7 @@ def get_bulk_clearsky_errors(ephemeris, **kwargs):
         'sunwhere.psa_numexpr': 'psa',
         'sunwhere.iqbal_numexpr': 'iqbal',
         'sunwhere.soltrack_numexpr': 'soltrack',
+        'sg2.sg2_c++': 'sg2',
         'jpl': 'jpl'
     }
 
@@ -207,7 +229,8 @@ def get_bulk_clearsky_errors(ephemeris, **kwargs):
 
     # append and re-format error scores table...
     variables = ['ghi', 'dni', 'dif']
-    available_methods = scores.index.intersection(['nrel', 'psa', 'soltrack', 'iqbal'])
+    available_methods = scores.index.intersection(
+        ['nrel', 'psa', 'soltrack', 'iqbal', 'sg2'])
     scores = pd.concat(
         [scores.xs(variable, level='variable', axis=1)
          .loc[available_methods] for variable in variables],
@@ -252,6 +275,7 @@ def plot_accuracy(ephemeris, sort_by=None, filename=None):
             'sunwhere.iqbal_numexpr': "sunwhere's IQBAL",
             'sunwhere.psa_numexpr': "sunwhere's PSA",
             'sunwhere.soltrack_numexpr': "sunwhere's SOLTRACK",
+            'sg2.sg2_c++': "SG2"
         }.get(name, name))
 
     pl.rcParams['axes.labelsize'] = 'xx-large'
@@ -356,6 +380,21 @@ def speed_meter(library, algorithm, n_times, n_locs=1, n_repeats=3, number=1, qu
             predicate = (f'[[pvsol.get_solarposition(times, lat, lon, '
                          f'method="{algorithm}", **kwargs) for lat in lats] for lon in lons]')
 
+    if library == 'sg2':
+        setup = ('lons1d = np.array(lons, ndmin=1, dtype="float64");'
+                 'lats1d = np.array(lats, ndmin=1, dtype="float64");')
+        if isinstance(n_locs, int):
+            predicate = ('sg2_solpos(np.c_[lons1d, lats1d, np.zeros(len(lats1d))],'
+                         'np.array(times.tz_localize(None), dtype="datetime64[ns]"),'
+                         '["geoc.R", "topoc.gamma_S0", "topoc.alpha_S"])')
+        else:
+            setup = ('xlons, xlats = np.meshgrid(lons, lats);'
+                     'lons1d = xlons.reshape(-1);'
+                     'lats1d = xlats.reshape(-1);')
+            predicate = ('sg2_solpos(np.c_[lons1d, lats1d, np.zeros(len(lats1d))],'
+                         'np.array(times.tz_localize(None), dtype="datetime64[ns]"),'
+                         '["geoc.R", "topoc.gamma_S0", "topoc.alpha_S"])')
+
     variables = {'times': times, 'lats': site_lats, 'lons': site_lons}
     timer = Timer(predicate, globals=variables | globals(), setup=setup)
 
@@ -386,11 +425,12 @@ def load_speed_tests(out_dir=None):
                      'soltrack_numexpr', 'soltrack_numpy',
                      'psa_numexpr', 'psa_numpy',
                      'iqbal_numexpr', 'iqbal_numpy'],
-        'pvlib': ['nrel_numba', 'nrel_numpy']  # , 'pyephem', 'ephemeris']
-    }  # pyephem and ephemeris are too slow to be considered !!
+        'pvlib': ['nrel_numba', 'nrel_numpy'],  # pyephem and ephemeris are too slow !!
+        'sg2': ['sg2_c++']
+    }
 
-    time_steps = [1, 10, 100, 1000, 10000, 100000, 1000000]
-    locations = [1, 100, '10x10']
+    time_steps = [1, 10, 100, 1000, 10000, 50000, 100000, 500000]
+    locations = [1, 10, 100, '10x10', '50x50', '100x100']
 
     def iter_dataframe(df):
         for idx in df.index:
@@ -411,6 +451,8 @@ def load_speed_tests(out_dir=None):
                     pbar = tqdm(iter_dataframe(df), **kwargs)
                     for n_times, n_locs in pbar:
                         pbar.set_postfix({'n_times': n_times, 'n_locs': n_locs})
+                        if (n_times > 1000) and (n_locs in ('50x50', '100x100')):
+                            continue
                         mean_time, std_time = speed_meter(
                             library, algorithm, n_times, n_locs)
                         df.loc[n_times][n_locs] = mean_time
@@ -424,7 +466,7 @@ def load_speed_tests(out_dir=None):
 
 def plot_exec_time(filename=None):
 
-    # # out_dir = '/home/jararias/code/devel/sunwhere/benchmark/data'
+    # out_dir = '/home/jararias/code/devel/sunwhere/benchmark/data'
     # exec_time = (load_speed_tests()  # out_dir)
     #              .stack(level=['n_locs', 'algorithm'])
     #              .rename('t_rel (us)').reset_index())
@@ -475,15 +517,22 @@ def plot_exec_time(filename=None):
         pl.savefig(filename)  # '../assets/exec_time_benchmark.png')
 
 
-def print_bulk_errors(df, variables=None):
-    for col in df.columns:
-        df[col] = df[col].map('{:.3f}'.format)
+def print_bulk_errors(df, variables=None, reformat_name=False):
     df = (df.get(['mbe', 'std', 'p66', 'p90', 'mae', 'rmse'])
           .rename(columns={'p66': '\u00b1CI66', 'p90': '\u00b1CI90'}))
 
+    def reformat(name):
+        if not reformat_name:
+            return name
+        package, method = name.split('.')
+        spa, engine = method.split('_') if '_' in method else (method, None)
+        new_name = f"{package}'s {spa.upper()}"
+        return new_name if engine is None else new_name + f" ({engine})"
+
     for variable in variables or df.index.get_level_values('variable').unique():
-        x = df.loc[variable].sort_values(by='rmse').rename_axis(variable, axis=0)
-        print(tabulate(x, headers='keys', tablefmt='mixed_outline'), end='\n')
+        this_var = (df.loc[variable].sort_values(by='rmse').rename_axis(variable, axis=0)
+                    .pipe(lambda x: x.set_index(x.index.map(reformat))))
+        print(tabulate(this_var, headers='keys', floatfmt='.3f', tablefmt='mixed_outline'), end='\n')
 
 
 def run_benchmark(year, site_lat, site_lon, show_accuracy=False, show_exec_time=False):
@@ -512,6 +561,7 @@ def run_benchmark(year, site_lat, site_lon, show_accuracy=False, show_exec_time=
     ephemeris = (
         ephemeris.pipe(add_level, 'jpl')
         .join(pvlib_ephemeris(times, site_lat, site_lon))
+        .join(sg2_ephemeris(times, site_lat, site_lon).pipe(add_level, 'sg2.sg2_c++'))
         .join(sunwhere_ephemeris(times, site_lat, site_lon))
     )
 
@@ -533,7 +583,7 @@ def run_benchmark(year, site_lat, site_lon, show_accuracy=False, show_exec_time=
     ephemeris_errors_arcsec = (
         ephemeris_errors_arcsec.stack(level=0)
         .swaplevel(axis=0).loc[['zenith', 'azimuth', 'ecf (x10\u207b\u00b3)']])
-    print_bulk_errors(ephemeris_errors_arcsec,
+    print_bulk_errors(ephemeris_errors_arcsec, reformat_name=True,
                       variables=('zenith', 'azimuth', 'ecf (x10\u207b\u00b3)'))
 
     logger.info('CLEAR-SKY IRRADIANCE ERRORS (in W m\u207b\u00b2):')

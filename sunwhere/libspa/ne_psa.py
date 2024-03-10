@@ -128,14 +128,14 @@ def _sunpos_one_dimensional(unixtime, longitude, latitude, with_refraction):
     tandec = nex('tan(delta)')
 
     zenith = nex('arccos(coslat*coshour*cosdec + sindec*sinlat)')
-    zenith = nex('zenith + EMRAU*sin(zenith)')  # ..parallax Correction
+    zenith = nex('zenith + EMRAU*sin(zenith)')  # ..parallax correction
 
     if with_refraction is True:
         # adapted from the NREL's SPA..
         sun_elev = HALFPI - zenith
         A = 1  #  assumed A=1: A = (pressure / 1010.) * (283 / (273+temperature))
-        refr_corr = nex('A*1.02/(60*tan(sun_elev + 3.1376e-3 / (sun_elev + 8.9186e-2)))')
-        zenith = nex('HALFPI - where(sun_elev >= 0.83337, sun_elev + refr_corr, sun_elev)')
+        refr_corr = nex('A*1.7802e-2/(60*tan(sun_elev + 3.1376e-3 / (sun_elev + 8.9186e-2)))')
+        zenith = nex('HALFPI - where(sun_elev >= -1.4545e-2, sun_elev + refr_corr, sun_elev)')
 
     azimuth = nex('arctan2(-sinhour, tandec*coslat - sinlat*coshour)')
     azimuth = nex('where(azimuth < 0., azimuth + PI, azimuth - PI)')
@@ -151,26 +151,26 @@ def _sunpos_two_dimensional(unixtime, longitude, latitude, with_refraction):
 
     delta, ra, gmst, eot, ecf = time_dependent_calculations(unixtime)
 
-    lat = latitude[None, :]
+    lat_rad = latitude[None, :]*DEG2RAD
     lon = longitude[None, :]
 
     # local coordinates
     ra = ra[:, None]
     gmst = gmst[:, None]
     hour_angle = nex('(gmst*15 + lon)*DEG2RAD - ra')  # hour angle, radians
-
-    sinlat = nex('sin(lat*DEG2RAD)')
-    coslat = nex('cos(lat*DEG2RAD)')
     sinhour = nex('sin(hour_angle)')
     coshour = nex('cos(hour_angle)')
+
+    sinlat = nex('sin(lat_rad)')
+    coslat = nex('cos(lat_rad)')
 
     decli = delta[:, None]
     sindec = nex('sin(decli)')
     cosdec = nex('cos(decli)')
     tandec = nex('tan(decli)')
 
-    zenith = nex('arccos(coslat*coshour*cosdec + sindec*sinlat)')
-    zenith = nex('zenith + EMRAU*sin(zenith)')  # ..parallax Correction
+    zenith = nex('arccos(coslat*coshour*cosdec + sindec*sinlat)')  # radians
+    zenith = nex('zenith + EMRAU*sin(zenith)')  # ..parallax correction
 
     if with_refraction is True:
         # adapted from the NREL's SPA..
@@ -218,8 +218,8 @@ def _sunpos_three_dimensional(unixtime, longitude, latitude, with_refraction):
         # adapted from the NREL's SPA..
         sun_elev = HALFPI - zenith
         A = 1  #  assumed A=1: A = (pressure / 1010.) * (283 / (273+temperature))
-        refr_corr = nex('A*1.02/(60*tan(sun_elev + 3.1376e-3 / (sun_elev + 8.9186e-2)))')
-        zenith = nex('HALFPI - where(sun_elev >= 0.83337, sun_elev + refr_corr, sun_elev)')
+        refr_corr = nex('A*1.7802e-2/(60*tan(sun_elev + 3.1376e-3 / (sun_elev + 8.9186e-2)))')
+        zenith = nex('HALFPI - where(sun_elev >= -1.4545e-2, sun_elev + refr_corr, sun_elev)')
 
     azimuth = nex('arctan2(-sinhour, tandec*coslat - sinlat*coshour)')
     azimuth = nex('where(azimuth < 0., azimuth + PI, azimuth - PI)')
