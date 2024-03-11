@@ -4,16 +4,16 @@ TODO:
 - [x] add documentation to README.md (images with folding code in usage showcases)
 - [ ] add solar chart with optional analemas in main.py
 - [ ] download of csv benchmark in public repo
-- [ ] explanation of azimuth
+- [x] explanation of azimuth
 
 # Solar position for solar resource assessment
 
 ![header](assets/headerfig.png)
 
-*sunwhere* is tailored for typical applications in solar resource assessment. It provides the solar zenith and azimuth angles, the sun-earth's distance correction factor, and secondary parameters such as solar declination, equation of time, and sunrise and sunset times, among others.
+*sunwhere* is tailored for typical applications in solar resource assessment 🌞. It provides the solar zenith and azimuth angles, the sun-earth's distance correction factor, and secondary parameters such as solar declination, equation of time, and sunrise and sunset times, among others.
 
 ## Main features
-*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2], SolTrack[^3] or Iqbal[^4] solar position algorithms (or SPAs), which provide alternative levels of speed and accuracy for each application's requirements.
+*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2], SolTrack[^3] or Iqbal[^4] solar position algorithms (or SPAs), which provide alternative levels of [accuracy and speed](https://github.com/jararias/sunwhere/tree/main#benchmark-which-spa-to-choose) for each application's requirements.
 
 *sunwhere* focuses on usage cases to optimize the computing performance. Three cases are specifically considered that hopefully cover most practical situations:
 
@@ -25,14 +25,14 @@ TODO:
 
 Conversely, other packages only consider single-location calculations, having to iterate over each location in multi-site evaluations.
 
-*sunwhere* returns a [Sunpos instance](api-docs/base.md) that provides access to the calculation results via xarray [DataArrays](https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html) that adapt to each specific usage case and provide access to the rich xarray's [API](https://docs.xarray.dev/en/latest/api.html#).
+*sunwhere* returns a [Sunpos instance](api-docs/base.md) that provides access to the results via xarray [DataArrays](https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html) that adapt to each specific usage case and provide access to the rich xarray's [API](https://docs.xarray.dev/en/latest/api.html#).
 
 [^1]: Reda I and Andreas A, 2003. Solar Position Algorithm for Solar Radiation Applications. 55 pp.; NREL Report No. TP-560-34302, Revised January 2008 [pdf](http://www.nrel.gov/docs/fy08osti/34302.pdf) [url](https://midcdmz.nrel.gov/spa/).
 [^2]: Blanco, M. et al. 2020. Updating the PSA sun position algorithm. Solar Energy, Vol. 212, pp. 339-341, and Blanco-Muriel, M. et al. 2001. Computing the solar vector. Solar Energy, Vol. 70, pp. 431-441 [url](https://doi.org/10.1016/j.solener.2020.10.084).
 [^3]: van der Sluys M and van Kan P, 2022. SolTrack: a free, fast and accurate routine to compute the position of the Sun [url](https://doi.org/10.48550/arXiv.2209.01557) [code](https://github.com/MarcvdSluys/SolTrack-Python)
 [^4]: Iqbal, M., An introduction to solar radiation. Academic Press. 1983 [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
 
-## Installation notes
+## Installation
 
 ```sh
 python3 -m pip install git+https://github.com/jararias/sunwhere@main
@@ -57,7 +57,9 @@ python3 -m pip install <path_to_local_copy>/.[benchmark]
 
 ### Case 1. sunwhere.sites
 
-It requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. They can also be scalars for single-location calculations. **The latitude and longitude arrays must have exactly the same length**. They are the geographic coordinates of the locations where solar position will be evaluated. The following image shows the solar zenith and elevation angles produced at 5 sites randomly selected.
+`sunwhere.sites` requires a 1-dim sequence of times (if they are not timezone-aware, UTC is assumed) and 1-dim arrays of latitude and longitude. They can also be scalars for single-location calculations, but :warning: **the latitude and longitude arrays must have exactly the same length** ⚠️ . They are the geographic coordinates of the locations where solar position will be evaluated.
+
+The following image shows the solar zenith and elevation angles produced at 5 sites randomly selected.
 
 ![case1: sites](assets/case1_sites.png)
 
@@ -119,7 +121,9 @@ pl.show()
 
 ### Case 2. sunwhere.regular_grid
 
-As `sunwhere.sites`, `sunwhere.regular_grid` requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. However, the length of the latitude and longitude arrays does not have to be necessarily the same. Now, they represent the rectangular coordinates of the lon-lat regular grid. The following image shows the solar zenith angle (left column), the cosine of solar zenith angle, which is important for the evaluation of solar irradiance (middle column), and the cosine of the incidence angle for a plane of array with an inclination of 30&#x00b0; and an azimuth of 60&#x00b0;. The calculations are performed over a regular grid with 1&#x00b0; cellsize.
+As `sunwhere.sites`, `sunwhere.regular_grid` requires a 1-dim sequence of times (if they are not timezone-aware, UTC is assumed) and 1-dim arrays of latitude and longitude. However, the length of the latitude and longitude arrays does not have to be necessarily the same. Now, they represent **the rectangular coordinates of the lon-lat regular grid**.
+
+The following image shows the solar zenith angle (left column), the cosine of solar zenith angle, which is important for the evaluation of solar irradiance (middle column), and the cosine of the incidence angle for a plane of array with an inclination of 30&#x00b0; and an azimuth of 60&#x00b0;. The calculations are performed over a regular grid with 1&#x00b0; cellsize.
 
 ![case2: sites](assets/case2_regular_grid.png)
 
@@ -170,7 +174,9 @@ pl.show()
 
 ### Case 3. sunwhere.transect
 
-As in the former cases, `sunwhere.transect` requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. In this case, however, **the length of the three arrays must be the same**. The following figure exemplifies some potential uses of `sunwhere.transect`.
+As in the former cases, `sunwhere.transect` requires a 1-dim sequence of times (if they are not timezone aware, UTC is assumed) and 1-dim arrays of latitude and longitude. In this case, however, :warning: **the length of the three arrays must be the same** :warning:.
+
+The following figure exemplifies some potential uses of `sunwhere.transect`.
 
 ![case3: sites](assets/case3_transect.png)
 
@@ -271,15 +277,17 @@ There are various factors to account for when one has to decide which SPA to use
 
 ### Ephemerides accuracy
 
-As the truth reference to evaluate the accuracy of the ephemerides calculated with _sunwhere_, I use the [JPL Horizons service](https://ssd.jpl.nasa.gov/horizons/). In particular, I have retrieved the ephemerides at (36.949N, 3.822W) for the whole year 2024 with 12-min time step. In addition, I have included here the ephemerides calculated with other python packages, such as [pvlib](https://pvlib-python.readthedocs.io/en/stable/) and [sg2](https://github.com/gschwind/sg2)[^5]. The following plot shows the distributions of the absolute differences of the solar zenith and azimuth angles against those obtained from the JPL Horizons service.
+As the truth reference to evaluate the accuracy of the ephemerides calculated with _sunwhere_, I use the [JPL Horizons service](https://ssd.jpl.nasa.gov/horizons/). In particular, I have retrieved the ephemerides at (36.949N, 3.822W) for the whole year 2024 with 12-min time step. In addition, I added the ephemerides calculated also with [pvlib](https://pvlib-python.readthedocs.io/en/stable/) and [sg2](https://github.com/gschwind/sg2)[^5]. The following plot shows the distributions of the absolute differences of the solar zenith and azimuth angles against those obtained from the JPL Horizons service. (Note the logarithmic error scale.)
 
 [^5]: Blanc P. and L. Wald, 2012. The SG2 algorithm for a fast and accurate computation of the position of the sun for multi-decadal time period. Solar Energy Vol. 88, pp. 3072-3083 [url](https://doi.org/10.1016/j.solener.2012.07.018).
 
 ![accuracy benchmark](assets/accuracy_benchmark.png)
 
-The SPAs seem to be organized in three classes. From the least to the most accurates: IQBAL alone in one group, PSA, SOLTRACK and EPHEMERIS, in another group, and NREL and PYEPHEM, in another group, with SG2 somewhere between the two most accurate groups. (Note the logarithmic scale!) The zenith and azimuth errors are similar in any case. The table below shows numerical results for the solar zenith angle errors. The rows are organized by increasing RMSE. The columns ±CI66 and ±CI90 are the symmetric intervals around MBE that encompass 66% and 90% of the errors, respectively.
+The SPAs seem organized in three accuracy classes: IQBAL alone in one group; PSA, SOLTRACK and EPHEMERIS, in a higher-accuracy group; and NREL and PYEPHEM, and maybe SG2 too, in another group with even higher accuracy. The zenith and azimuth errors are similar in any case.
 
-| zenith (units: arc-sec)       |     mbe |     std |   ±CI66 |    ±CI90 |     mae |    rmse |
+The next table shows numerical results for the solar zenith angle errors. The rows are organized by increasing RMSE. The columns ±CI66 and ±CI90 are the symmetric intervals around MBE that encompass 66% and 90% of the errors, respectively. These results show more clearly that the NREL SPA has the smaller overall deviation with respect to the JPL ephemerides (0.182 arc-sec RMSE) and that both PYEPHEM and SG2 have slightly greater deviations, but still significantly lower than the rest of SPAs.
+
+| zenith (units: arc-sec)       |     MBE |     STD |   ±CI66 |    ±CI90 |     MAE |    RMSE |
 |:------------------------------|--------:|--------:|--------:|---------:|--------:|--------:|
 | sunwhere's NREL (numexpr)     | 0.024   | 0.180   | 0.166   | 0.299    |   0.142 |   0.182 |
 | pvlib's NREL (numba)          | 0.024   | 0.181   | 0.166   | 0.299    |   0.143 |   0.182 |
@@ -294,17 +302,17 @@ The SPAs seem to be organized in three classes. From the least to the most accur
 | sunwhere's IQBAL (numexpr)    | -15.341 | 732.795 | 805.551 | 1117.969 | 648.974 | 732.948 |
 | sunwhere's IQBAL (numpy)      | -15.341 | 732.795 | 805.551 | 1117.969 | 648.974 | 732.948 |
 
-These results are nice but tell us nothing about the SPA that we should use to evaluate solar radiation. Moreover, there might be one or more SPAs that we probably shouldn't use (perhaps, IQBAL), or maybe, even IQBAL is more than enough, despite its large errors. For this reason, I show next a similar analysis that focuses on the impact of these errors in the evaluation of solar radiation.
+_These results are nice but tell us nothing, or little, about the SPA that we should use to evaluate solar radiation_ 😞. Indeed, there might be one or more SPAs that we probably shouldn't use (perhaps, IQBAL), or maybe, even IQBAL is more than enough, despite its large errors. For this reason, I show next a similar analysis that focuses on the impact of these deviations in the evaluation of solar radiation.
 
 ### Solar radiation accuracy
 
-I use the SPARTA[^6] clear-sky solar radiation model to estimate the impact that the ephemerides uncertainties have in the modelled solar radiation. This impact might be important in state-of-the-art clear-sky models, given their high performance. Should clouds were included in the modelling, the expected errors of the results would likely grow to the point that errors associated to solar position inaccuracies would be negligible.
+For this analysis, I use the SPARTA[^6] ☀️ clear-sky solar radiation model. To do so, I evaluate the differences between the SPARTA's solar irradiances when the solar zenith angle and the sun-earth distance correction factor are obtained from the JPL Horizons service and when they are computed using the SPAs. The impact of the solar position deviations is potentially important for state-of-the-art clear-sky models, given their high performance. Should clouds were included in the solar radiation modelling, the expected overall errors would likely grow to the point that the errors associated to solar position inaccuracies are negligible.
 
 [^6]: Ruiz-Arias, JA, 2023. SPARTA: Solar parameterization for the radiative transfer of the cloudless atmosphere. Renewable and Sustainable Energy Reviews, Vol. 188, 113833 [url](https://doi.org/10.1016/j.rser.2023.113833)
 
-To estimate the errors, I evaluate the clear-sky solar irradiance with SPARTA using the JPL Horizons ephemerides and compute the differences against the same simulations, but alternatively using the ephemerides calculated with the SPAs. I assume an average (kind of rural) clear-sky atmosphere. The results are shown in the tables below.
+To run SPARTA, I assume an average (kind of rural) clear-sky atmosphere. The results are shown in the tables below.
 
-| GHI (units: W m&#x207b;&#x00b2;) |    mbe |   std |   ±CI66 |   ±CI90 |   mae |   rmse |
+| GHI (units: W m&#x207b;&#x00b2;) |    MBE |   STD |   ±CI66 |   ±CI90 |   MAE |   RMSE |
 |:---------|-------:|------:|--------:|--------:|------:|-------:|
 | SG2      | -0.027 | 0.024 |   0.025 |   0.039 | 0.027 |  0.036 |
 | NREL     | -0.027 | 0.024 |   0.025 |   0.040 | 0.027 |  0.036 |
@@ -312,7 +320,7 @@ To estimate the errors, I evaluate the clear-sky solar irradiance with SPARTA us
 | SolTrack | -0.028 | 0.045 |   0.044 |   0.074 | 0.041 |  0.053 |
 | IQBAL    |  0.031 | 2.922 |   3.257 |   4.734 | 2.483 |  2.922 |
 
-| DNI (units: W m&#x207b;&#x00b2;) |    mbe |   std |   ±CI66 |   ±CI90 |   mae |   rmse |
+| DNI (units: W m&#x207b;&#x00b2;) |    MBE |   STD |   ±CI66 |   ±CI90 |   MAE |   RMSE |
 |----------|--------|-------|---------|---------|-------|--------|
 | SG2      | -0.031 | 0.021 |   0.024 |   0.033 | 0.031 |  0.037 |
 | NREL     | -0.031 | 0.021 |   0.025 |   0.032 | 0.031 |  0.037 |
@@ -320,7 +328,7 @@ To estimate the errors, I evaluate the clear-sky solar irradiance with SPARTA us
 | SolTrack | -0.032 | 0.052 |   0.049 |   0.084 | 0.049 |  0.061 |
 | IQBAL    |  0.021 | 2.851 |   2.139 |   4.942 | 2.024 |  2.851 |
 
-| DIF (units: W m&#x207b;&#x00b2;) |    mbe |   std |   ±CI66 |   ±CI90 |   mae |   rmse |
+| DIF (units: W m&#x207b;&#x00b2;) |    MBE |   STD |   ±CI66 |   ±CI90 |   MAE |   RMSE |
 |----------|--------|-------|---------|---------|-------|--------|
 | SG2      | -0.006 | 0.004 |   0.005 |   0.006 | 0.006 |  0.007 |
 | NREL     | -0.006 | 0.004 |   0.005 |   0.006 | 0.006 |  0.007 |
@@ -328,21 +336,21 @@ To estimate the errors, I evaluate the clear-sky solar irradiance with SPARTA us
 | SolTrack | -0.006 | 0.009 |   0.009 |   0.016 | 0.009 |  0.011 |
 | IQBAL    |  0.004 | 0.522 |   0.494 |   0.870 | 0.407 |  0.522 |
 
-These results clearly show that **all SPAs, except IQBAL, are perfectly usable to compute solar radiation** because all of them induce errors below 1 W m&#x207b;&#x00b2;, way below the expected observational errors in solar radiation.
+These results clearly show that **the uncertainty in modelled clear-sky solar irradiance that is attributable to uncertainty in solar position is negligible with all SPAs except IQBAL** because they induce errors below 1 W m&#x207b;&#x00b2; (much higher with IQBAL), which are negligible compare even to solar radiation observational errors.
 
 Hence, **computing time surfaces as a key feature to decide which is the best SPA**.
 
 ### Computing time
 
-The following plots summarize the tests performed in three different situations in my modest [6-core](https://www.intel.la/content/www/xl/es/products/sku/196448/intel-core-i710710u-processor-12m-cache-up-to-4-70-ghz/specifications.html), 32 GB RAM, 6.1.71-1-MANJARO (64 bits), desktop computer. Every SPA run is repeated 3 times and I take the average total simulation time.
-
-The first case (left plot) is for single-location calculations, for time series of several lenghts from 1 to 500,000 time steps. (50,000 time steps is about one month of 1-min time steps and 500,000 is about one year of 1-min time steps.) Note the logarithmic color scale. If, according to the solar irradiance analysis above, we don't distinguish between SPAs other than IQBAL, the fastest are the _sunwhere_'s _numexpr_ PSA and SolTrack. However, should we need higher accuracy, then NREL (or even SG2) should be considered. Then, the fastest options would be the pvlib's numba NREL or SG2. However, the former requires on-flight compilation which may discourage its use for short time series. In any case, the total execution times here are so low that, in practice, nearly all SPAs are equivalent.
-
-The second case (middle plot) is for multi-site calculations (100 sites) over a common time grid. Here, _sunwhere_ starts shining over all other SPAs, especially for long time series, when the execution times are not negligible (in contrast with the single-location case). For instance, the _sunwhere_'s _numexpr_ NREL is about 11 times faster than the pvlib's _numba_ NREL and about 80 times faster than the pvlib's _numpy_ NREL. SG2 has also an outstanding performance, only 2 seconds slower. However, the _sunwhere_'s _numexpr_ PSA is much more faster, since it requires only 1.7 seconds to compute the ephemerides for the the 100 locations over a time grid of 500,000 time steps.
-
-The results are even more favorable to _sunwhere_ in the third case (right plot) which evaluates the execution times in a modest-size 10x10 regular grid. The results would be even more favorable for _sunwhere_ for a greater number of grid cells. 
+The plots below summarize the performance tests conducted in three different situations in my modest [6-core](https://www.intel.la/content/www/xl/es/products/sku/196448/intel-core-i710710u-processor-12m-cache-up-to-4-70-ghz/specifications.html), 32 GB RAM, 6.1.71-1-MANJARO (64 bits), desktop computer. The plots show total execution times obtained as the average of three repeated calculations using python [timeit](https://docs.python.org/3/library/timeit.html#module-timeit).
 
 ![accuracy benchmark](assets/exec_time_benchmark.png)
+
+The first case (left plot) is for single-location calculations, for time series of several lenghts from 1 to 500,000 time steps. (50,000 time steps is about one month of 1-min time steps and 500,000 is about one year of 1-min time steps.) Note the logarithmic color scale. If, according to the previous solar irradiance analysis, we don't distinguish between SPAs other than IQBAL, the fastest are the _sunwhere_'s _numexpr_ PSA and SolTrack. However, should we need higher accuracy, then NREL (or even SG2) should be considered. In such case, the fastest options would be the pvlib's numba NREL or SG2. However, the former requires on-the-fly compilation which may discourage its use for short time series. In any case, the total execution times here are so small in either case that, in practice, nearly all SPAs are equivalent in terms of simulation speed.
+
+The second case (middle plot) is for multi-site calculations (100 sites) over a common time grid. Here, _sunwhere_ starts shining over all other SPAs, especially for long time series, when the execution times are not negligible (in contrast with the single-location case). For instance, the _sunwhere_'s _numexpr_ NREL is about 11 times faster than the pvlib's _numba_ NREL and about 80 times faster than the pvlib's _numpy_ NREL. SG2 has also an outstanding performance, only 2 seconds slower. However, the _sunwhere_'s _numexpr_ PSA is much faster, since it requires only 1.7 seconds to compute the ephemerides for the the 100 locations over a time grid of 500,000 time steps.
+
+The results are even more favorable to _sunwhere_ in the third case (right plot) which evaluates the execution times in a modest-size 10x10 regular grid. The results would be even more favorable for _sunwhere_ for a greater grids. 
 
 ### References
 

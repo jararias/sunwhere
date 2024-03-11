@@ -4,7 +4,8 @@ import typer
 import pylab as pl
 
 from .position import calculate_position
-from .benchmark import run_benchmark
+# from .benchmark import run_benchmark
+from .solar_chart import make_solar_chart
 
 
 MY_SITE_LAT = 36.949
@@ -58,19 +59,31 @@ def benchmark(
     plot_accuracy: bool = typer.Option(False, help="show plot of solar position algorithms accuracy"),
     plot_exec_time: bool = typer.Option(False, help="show plot of total execution times")
 ):
-    try:
-        run_benchmark(year, site_lat, site_lon, plot_accuracy, plot_exec_time)
-        if plot_accuracy or plot_exec_time:
-            pl.show()
-    except Exception as exc:
-        typer.echo(str(exc))
-        raise typer.Exit(code=1)
-    # pass
+    # try:
+    #     run_benchmark(year, site_lat, site_lon, plot_accuracy, plot_exec_time)
+    #     if plot_accuracy or plot_exec_time:
+    #         pl.show()
+    # except Exception as exc:
+    #     typer.echo(str(exc))
+    #     raise typer.Exit(code=1)
+    pass
 
 
 @app.command(help="plots a solar chart [NOT AVAILABLE YET]")
-def chart():
-    print('solar chart')
+def chart(
+    site_lat: str = typer.Argument("36.949N", parser=parse_latitude, help="latitude [90S, 90N]"),
+    site_lon: str = typer.Argument("3.822W", parser=parse_longitude, help="longitude [180W, 180E)"),
+    datetime: str = typer.Option(None, '-t', '--time', metavar='[DATETIME]', help="timestamp"),
+    timezone: str = typer.Option('UTC', "-z", "--timezone", help="time zone"),
+    polar: bool = typer.Option(True, help="polar chart"),
+    transparent: bool = typer.Option(False, help="transparent background"),
+    filename: str = typer.Option(None, "-f", "--file", help="output filename"),
+):
+
+    make_solar_chart(site_lat, site_lon, datetime,
+                     timezone, polar, transparent, filename)
+    if filename is None:
+        pl.show()
 
 
 if __name__ == '__main__':

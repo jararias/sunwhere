@@ -283,7 +283,7 @@ class Sunpos:
 
     @property
     def azimuth(self):
-        """DataArray: solar azimuth angle, in degrees [-180 am, 180 pm]."""
+        """DataArray: solar azimuth angle, in degrees [-180\u00b0, 180\u00b0], zero south."""
         return np.degrees(self._azimuth).rename('azimuth').assign_attrs(
             units='degrees',
             range='(-180 am, 180 pm)',
@@ -292,7 +292,7 @@ class Sunpos:
 
     @property
     def saa(self):
-        """DataArray: solar azimuth angle, in degrees [-180 am, 180 pm]. Alias for `azimuth`."""
+        """DataArray: solar azimuth angle, in degrees [-180\u00b0, 180\u00b0], zero south. Alias for `azimuth`."""
         return self.azimuth.rename('saa')
 
     @property
