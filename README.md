@@ -1,4 +1,4 @@
-![python versions](https://img.shields.io/badge/python-3.9%2C3.10%2C3.11-blue.svg)
+![python versions](https://img.shields.io/badge/python-3.9%2C3.10%2C3.11-blue.svg) ![tests-badge](assets/tests-badge.svg) ![coverage-badge](assets/coverage-badge.svg)
 
 # Solar position for solar resource assessment
 
