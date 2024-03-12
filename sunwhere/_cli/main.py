@@ -1,11 +1,11 @@
 
 import typer
 
-import pylab as pl
+# import pylab as pl
 
 from .position import calculate_position
 # from .benchmark import run_benchmark
-from .solar_chart import make_solar_chart
+# from .solar_chart import make_solar_chart
 
 
 MY_SITE_LAT = 36.949
@@ -14,7 +14,8 @@ MY_SITE_LON = -3.822
 
 app = typer.Typer(
     help="sunwhere's CLI",
-    add_completion=False
+    add_completion=False,
+    pretty_exceptions_show_locals=False
 )
 
 
@@ -69,21 +70,21 @@ def benchmark(
     pass
 
 
-@app.command(help="plots a solar chart [NOT AVAILABLE YET]")
-def chart(
-    site_lat: str = typer.Argument("36.949N", parser=parse_latitude, help="latitude [90S, 90N]"),
-    site_lon: str = typer.Argument("3.822W", parser=parse_longitude, help="longitude [180W, 180E)"),
-    datetime: str = typer.Option(None, '-t', '--time', metavar='[DATETIME]', help="timestamp"),
-    timezone: str = typer.Option('UTC', "-z", "--timezone", help="time zone"),
-    polar: bool = typer.Option(True, help="polar chart"),
-    transparent: bool = typer.Option(False, help="transparent background"),
-    filename: str = typer.Option(None, "-f", "--file", help="output filename"),
-):
+# @app.command(help="plots a solar chart [NOT AVAILABLE YET]")
+# def chart(
+#     site_lat: str = typer.Argument("36.949N", parser=parse_latitude, help="latitude [90S, 90N]"),
+#     site_lon: str = typer.Argument("3.822W", parser=parse_longitude, help="longitude [180W, 180E)"),
+#     datetime: str = typer.Option(None, '-t', '--time', metavar='[DATETIME]', help="timestamp"),
+#     timezone: str = typer.Option('UTC', "-z", "--timezone", help="time zone"),
+#     polar: bool = typer.Option(True, help="polar chart"),
+#     transparent: bool = typer.Option(False, help="transparent background"),
+#     filename: str = typer.Option(None, "-f", "--file", help="output filename"),
+# ):
 
-    make_solar_chart(site_lat, site_lon, datetime,
-                     timezone, polar, transparent, filename)
-    if filename is None:
-        pl.show()
+#     make_solar_chart(site_lat, site_lon, datetime,
+#                      timezone, polar, transparent, filename)
+#     if filename is None:
+#         pl.show()
 
 
 if __name__ == '__main__':

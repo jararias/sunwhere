@@ -1,11 +1,5 @@
 ![python versions](https://img.shields.io/badge/python-3.8%2C3.9%2C3.10-blue.svg)
 
-TODO:
-- [x] add documentation to README.md (images with folding code in usage showcases)
-- [ ] add solar chart with optional analemas in main.py
-- [ ] download of csv benchmark in public repo
-- [x] explanation of azimuth
-
 # Solar position for solar resource assessment
 
 ![header](assets/headerfig.png)
@@ -261,13 +255,13 @@ pl.show()
 ```
 </details>
 
-### Case 4. Command line interface
+<!-- ### Case 4. Command line interface
 
 _sunwhere_ comes also with CLI utilities. See:
 
 ```sh
 sunwhere --help
-```
+``` -->
 
 ## Benchmark: which SPA to choose?
 

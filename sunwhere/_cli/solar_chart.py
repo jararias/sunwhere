@@ -52,7 +52,7 @@ class SolarChart(object):
             1, 1, figsize=figsize, dpi=150, layout='constrained',
             subplot_kw={'projection': self.projection})
 
-        if self.is_polar():
+        if self.is_polar:
             # choose radial tick label positions
             self.ax.set_rlabel_position(180)
             # rotate South down
@@ -62,30 +62,42 @@ class SolarChart(object):
             self.ax.set_xlim([-180., 180.])
             self.ax.set_ylim([0., 90.])
 
+    @property
     def is_polar(self):
         return self.projection == 'polar'
+
+    @property
+    def timezone(self):
+        return self._timezone
+
+    def _date_range(self, start, n_periods, time_step):
+        # print(start, n_periods, time_step)
+        # tstamp = pd.Timestamp(start).tz_localize(self.timezone, ambiguous='NaT')
+        # print(tstamp)
+        times = pd.date_range(start, periods=n_periods, freq=time_step)
+        times = (pd.to_datetime(times).tz_localize(None)
+                 .tz_localize(self.timezone, ambiguous='NaT', nonexistent='NaT'))
+        return times[~times.isna()]
 
     def plot_sunpath(self, sunpath, **kwargs):
         x = sunpath['azimuth']
         y = sunpath['altitude']
-        self.ax.plot(np.radians(x) if self.is_polar() else x, y, **kwargs)
+        self.ax.plot(np.radians(x) if self.is_polar else x, y, **kwargs)
 
     def text(self, azimuth, altitude, txt, **kwargs):
-        kwargs.setdefault('family', 'serif')
-        az = np.radians(azimuth) if self.is_polar() else azimuth
+        az = np.radians(azimuth) if self.is_polar else azimuth
         self.ax.text(az, altitude, txt, **kwargs)
 
-    def draw_solar_grid(self, days=(15,), months=np.r_[1:6, 7:12],
-                        hours=range(0, 24), minutes=(0,),
+    def draw_solar_grid(self, days=None, months=None, hours=None, minutes=None,
                         include_solstice=True, include_equinox=True):
 
         ts = pd.Timestamp(datetime.now())
         if self._user_datetime is not None:
             ts = pd.Timestamp(self._user_datetime)
-        ts = ts.tz_localize(self._timezone)
-
+        ts = ts.tz_localize(self.timezone)
         time_ref = ts.tzname()
-        zone_name = self._timezone
+
+        zone_name = self.timezone
         if zone_name == 'UTC':
             zone_name = 'Universal Coordinated Time'
 
@@ -96,15 +108,15 @@ class SolarChart(object):
 
         # solsticio de verano
         if include_solstice is True:
-            times = pd.date_range('21 Jun 2024', periods=n_steps, freq=time_step)
-            solstice = self.sunpath(times)
+            times = self._date_range(f'21 Jun {ts.year}', n_steps, time_step)
+            solstice = self.sunpath(times.tz_convert('UTC'))
             kwargs.update({'color': SolarChart.color_solstice})
             self.plot_sunpath(solstice, **kwargs)
 
         # equinoccio de invierno
         if include_equinox is True:
-            times = pd.date_range('21 Dec 2024', periods=n_steps, freq=time_step)
-            equinox = self.sunpath(times)
+            times = self._date_range(f'21 Dec {ts.year}', n_steps, time_step)
+            equinox = self.sunpath(times.tz_convert('UTC'))
             kwargs.update({'color': SolarChart.color_equinox})
             self.plot_sunpath(equinox, **kwargs)
 
@@ -113,7 +125,7 @@ class SolarChart(object):
             x = np.linspace(-180, 180, 361)
             y1 = np.interp(x, solstice['azimuth'], solstice['altitude'], period=360)
             y2 = np.interp(x, equinox['azimuth'], equinox['altitude'], period=360)
-            self.ax.fill_between(np.radians(x) if self.is_polar() else x, y1,
+            self.ax.fill_between(np.radians(x) if self.is_polar else x, y1,
                                  y2, color=SolarChart.color_solar_patch, zorder=-100)
 
         # DRAW INTRA-DAILY GRID AT hours:minutes
@@ -121,47 +133,46 @@ class SolarChart(object):
         color = SolarChart.color_solar_grid
 
         # draw grid
-        time_step = pd.Timedelta(24, 'H')
-        hours_and_minutes = list(itt.product(hours, minutes))
+        hours_and_minutes = list(
+            itt.product(hours or range(0, 24), minutes or (0,))
+        )
         for ho, mn in hours_and_minutes:
-            # draw sunpath
-            date_s = pd.Timestamp(f'1 Jan 2024 {ho:02d}:{mn:02d}')
-            times = pd.date_range(date_s, periods=366, freq=time_step)
-            sunpath = self.sunpath(times)
+            # draw analemmas
+            date_s = pd.Timestamp(f'1 Jan {ts.year} {ho:02d}:{mn:02d}')
+            times = self._date_range(date_s, 366 if ts.is_leap_year else 365, '1D')
+            sunpath = self.sunpath(pd.to_datetime(times).tz_localize(None))
             self.plot_sunpath(sunpath, ls='-', marker='', lw=0.7, color=color)
 
             # draw time labels
-            solpos = self.sunpath([pd.Timestamp(f'21 Jun 2024 {ho:d}:{mn:d}')])
+            solpos = self.sunpath(
+                [pd.Timestamp(f'21 Jun {ts.year} {ho:d}:{mn:d}', tz=self.timezone)])
             az, al = solpos['azimuth'], solpos['altitude']
-            if al < 0:
-                continue
-            if self.is_polar():
+            if al >= 0:
                 daz, dal = 0., 1.
                 ha = 'center' if abs(az) < 60 else ('left' if az < 0 else 'right')
-            else:
-                daz, dal = np.sign(az) * 1.5, 0.
-                ha = 'center' if az == 0 else ('right' if az < 0 else 'left')
+                if not self.is_polar:
+                    daz, dal = np.sign(az) * 1.5, 0.
+                    ha = 'center' if az == 0 else ('right' if az < 0 else 'left')
 
-            txt = f'{ho}' if mn == 0 else f'{ho}:{mn:02d}'
-            bbox = dict(facecolor='white', edgecolor='none', pad=.1)
-            self.text(az + daz, al + dal, txt + f' {time_ref}', ha=ha,
-                      va='bottom', color=color, fontsize=8, bbox=bbox)
+                txt = f'{ho}' if mn == 0 else f'{ho}:{mn:02d}'
+                bbox = dict(facecolor='white', edgecolor='none', pad=.1)
+                self.text(az + daz, al + dal, txt + f' {time_ref}', ha=ha,
+                          va='bottom', color=color, fontsize=8, bbox=bbox)
 
-        # DRAW INTER-DAILY GRID AT days/months
+        # DRAW DAILY GRID AT days/months between the summer solstice and winter equinox
 
-        days = list(itt.product(days, months))
+        days = list(itt.product(days or (15,), months or np.r_[1:6, 7:12]))
         for day in ((21, 6), (21, 12)):
             if day not in days:
                 days.append(day)
 
-        time_step = pd.Timedelta(5, 'min')
         for day, month in days:
             # draw sun path
-            date_s = pd.Timestamp(f'{day}/{month}/2024')
-            times = pd.date_range(date_s, periods=288, freq=time_step)
-            sunpath = self.sunpath(times)
-            color = SolarChart.color_solar_grid
-            self.plot_sunpath(sunpath, ls='-', lw=0.5, marker='', color=color)
+            sunpath = self.sunpath(
+                self._date_range(f'{day}/{month}/{ts.year}', 288, '5min'))
+            self.plot_sunpath(
+                sunpath, ls='-', lw=0.5, marker='',
+                color=SolarChart.color_solar_grid)
 
             az = 0.
             # if (self._timezone is None) and len(hours_and_minutes) > 1:
@@ -183,7 +194,7 @@ class SolarChart(object):
             altitude = np.interp(az, sunpath['azimuth'],
                                  sunpath['altitude'], period=360)
             bbox = dict(fc=SolarChart.color_solar_patch, ec='none', pad=1)
-            self.text(az, altitude, date_s.strftime('%d/%m'), fontsize=6,
+            self.text(az, altitude, f'{day:02d}/{month:02d}', fontsize=6,
                       ha='center', va='center', bbox=bbox, color=color,
                       weight=weight)
 
@@ -195,7 +206,7 @@ class SolarChart(object):
 
         add_text(-.05, -.08, f'{time_ref}: {zone_name}', fontsize=10)
 
-        if self.is_polar():
+        if self.is_polar:
             add_text(-.08, 1.02, r'Latitude=$%.2f^{\circ}$' % self.latitude,
                      bbox=dict(fc='white', ec='none', pad=4), fontsize=14)
             add_text(-.08, .99, r'Longitude=$%.2f^{\circ}$' % self.longitude,
@@ -218,13 +229,6 @@ class SolarChart(object):
             add_text(0.75, 1.06, 'East', ha='center', fontsize=14)
 
         self.draw_background_grid()
-
-        if self._user_datetime is not None:
-            ts = pd.Timestamp(datetime.now())
-            if self._user_datetime is not None:
-                ts = pd.Timestamp(self._user_datetime)
-            ts = ts.tz_localize(self._timezone)
-            self.draw_solar_path(self._user_datetime)
 
     def draw_background_grid(
             self, major_altitude_ticks=None,
@@ -252,7 +256,7 @@ class SolarChart(object):
         def transform(azimuth):
             return np.where(azimuth >= 0., azimuth, azimuth + 360.)
 
-        if self.is_polar():
+        if self.is_polar:
             # major solar altitude labels
             ticks = get_polar_ticks('altitude_major', major_altitude_ticks)
             labels = [f'{y:.0f}' + r'$^{\circ}$' for y in ticks]
@@ -300,25 +304,26 @@ class SolarChart(object):
 
         color = SolarChart.color_user_solar_path
 
-        ts = pd.Timestamp(user_datetime)
+        ts = pd.Timestamp(user_datetime).tz_localize(self.timezone)
 
-        time_step = pd.Timedelta(1, 'min')
-        times = pd.date_range(ts.date(), periods=1440, freq=time_step)
-        sunpath = self.sunpath(times)
+        # diurnal sunpath
+        times = self._date_range(f'{ts.year}/{ts.month}/{ts.day}', 288, '5min')  # ts.date(), 1440, '1min')
+        sunpath = self.sunpath(times)  # pd.to_datetime(times).tz_localize(None))
         self.plot_sunpath(sunpath, ls='-', marker='', lw=1, color=color)
 
-        time_step = pd.Timedelta(24, 'H')
-        date_s = ts.replace(month=1, day=1)
-        times = pd.date_range(date_s, periods=366, freq=time_step)
-        sunpath = self.sunpath(times)
+        # analemma
+        date_s = ts.tz_convert('UTC').replace(month=1, day=1)
+        times = self._date_range(date_s, 366 if ts.is_leap_year else 365, '1D')
+        sunpath = self.sunpath(pd.to_datetime(times).tz_localize(None))
         self.plot_sunpath(sunpath, ls='-', marker='', lw=0.7, color=color)
 
-        solpos = self.sunpath([ts])
+        # solpos = self.sunpath([ts.tz_localize(None).tz_localize(self.timezone)])
+        solpos = self.sunpath([ts.tz_convert('UTC')])
         self.plot_sunpath(solpos, ls='', marker='.', ms=8, color=color)
 
         txt = f'User path: {ts}'
-        x = -.08 if self.is_polar() else .01
-        y = .977 if self.is_polar() else .925
+        x = -.08 if self.is_polar else .01
+        y = .977 if self.is_polar else .925
         self.ax.text(x, y, txt, transform=self.ax.transAxes,
                      ha='left', va='top', fontsize=14, color=color,
                      bbox=dict(facecolor='white', edgecolor='none', pad=3))
@@ -333,5 +338,6 @@ def make_solar_chart(site_lat, site_lon, user_datetime=None, timezone='UTC',
 
     solar_chart = SolarChart(site_lat, site_lon, user_datetime, timezone, polar)
     solar_chart.draw_solar_grid()
+    solar_chart.draw_solar_path(user_datetime)
     if filename is not None:
         solar_chart.savefig(filename, transparent=transparent)
