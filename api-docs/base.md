@@ -75,7 +75,7 @@ str: Solar position algorithm.
 
 #### <kbd>property</kbd> azimuth
 
-DataArray: solar azimuth angle, in degrees [-180 am, 180 pm]. 
+DataArray: solar azimuth angle, in degrees [-180°, 180°], zero south. 
 
 ---
 
@@ -147,7 +147,7 @@ DataArray: Longitudes where solar geometry is evaluated, degrees.
 
 #### <kbd>property</kbd> saa
 
-DataArray: solar azimuth angle, in degrees [-180 am, 180 pm]. Alias for `azimuth`. 
+DataArray: solar azimuth angle, in degrees [-180°, 180°], zero south. Alias for `azimuth`. 
 
 ---
 
