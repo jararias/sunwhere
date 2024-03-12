@@ -271,7 +271,7 @@ There are various factors to account for when one has to decide which SPA to use
 
 ### Ephemerides accuracy
 
-As the truth reference to evaluate the accuracy of the ephemerides calculated with _sunwhere_, I use the [JPL Horizons service](https://ssd.jpl.nasa.gov/horizons/). In particular, I have retrieved the ephemerides at (36.949N, 3.822W) for the whole year 2024 with 12-min time step. In addition, I added the ephemerides calculated also with [pvlib](https://pvlib-python.readthedocs.io/en/stable/) and [sg2](https://github.com/gschwind/sg2)[^5]. The following plot shows the distributions of the absolute differences of the solar zenith and azimuth angles against those obtained from the JPL Horizons service. (Note the logarithmic error scale.)
+As the truth reference to evaluate the accuracy of the ephemerides calculated with _sunwhere_, I use the [JPL's Horizons System service](https://ssd.jpl.nasa.gov/horizons/). In particular, I have retrieved the ephemerides at (36.949N, 3.822W) for the whole year 2024 with 12-min time step. In addition, I added the ephemerides calculated also with [pvlib](https://pvlib-python.readthedocs.io/en/stable/) and [sg2](https://github.com/gschwind/sg2)[^5]. The following plot shows the distributions of the absolute differences of the solar zenith and azimuth angles against those obtained from the JPL's Horizons System service. (Note the logarithmic error scale.)
 
 [^5]: Blanc P. and L. Wald, 2012. The SG2 algorithm for a fast and accurate computation of the position of the sun for multi-decadal time period. Solar Energy Vol. 88, pp. 3072-3083 [url](https://doi.org/10.1016/j.solener.2012.07.018).
 
@@ -300,7 +300,7 @@ _These results are nice but tell us nothing, or little, about the SPA that we sh
 
 ### Solar radiation accuracy
 
-For this analysis, I use the SPARTA[^6] ☀️ clear-sky solar radiation model. To do so, I evaluate the differences between the SPARTA's solar irradiances when the solar zenith angle and the sun-earth distance correction factor are obtained from the JPL Horizons service and when they are computed using the SPAs. The impact of the solar position deviations is potentially important for state-of-the-art clear-sky models, given their high performance. Should clouds were included in the solar radiation modelling, the expected overall errors would likely grow to the point that the errors associated to solar position inaccuracies are negligible.
+For this analysis, I use the SPARTA[^6] ☀️ clear-sky solar radiation model. To do so, I evaluate the differences between the SPARTA's solar irradiances when the solar zenith angle and the sun-earth distance correction factor are obtained from the JPL's Horizons System service and when they are computed using the SPAs. The impact of the solar position deviations is potentially important for state-of-the-art clear-sky models, given their high performance. Should clouds were included in the solar radiation modelling, the expected overall errors would likely grow to the point that the errors associated to solar position inaccuracies are negligible.
 
 [^6]: Ruiz-Arias, JA, 2023. SPARTA: Solar parameterization for the radiative transfer of the cloudless atmosphere. Renewable and Sustainable Energy Reviews, Vol. 188, 113833 [url](https://doi.org/10.1016/j.rser.2023.113833)
 
