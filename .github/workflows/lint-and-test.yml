@@ -1,6 +1,7 @@
 name: lint-and-test
 
-on: [push, pull_request]
+# on: [push, pull_request]
+on: [push]
 
 jobs:
   lint:
