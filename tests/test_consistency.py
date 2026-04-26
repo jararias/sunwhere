@@ -17,7 +17,7 @@ import sunwhere  # pylint: disable=import-error
 def space_time_sites():
     N_PERIODS = 2*24*365
     N_LOCATIONS = 200
-    times = pd.date_range('2024-01-01', periods=N_PERIODS, freq='H')
+    times = pd.date_range('2024-01-01', periods=N_PERIODS, freq='h')
     rg = np.random.default_rng()
     lats = rg.uniform(-90., 90., N_LOCATIONS)
     lons = rg.uniform(-180., 180., N_LOCATIONS)
@@ -28,7 +28,7 @@ def space_time_sites():
 def space_time_regular_grid():
     N_PERIODS = 2*24*365
     N_LATS, N_LONS = 1, 1
-    times = pd.date_range('2024-01-01', periods=N_PERIODS, freq='H')
+    times = pd.date_range('2024-01-01', periods=N_PERIODS, freq='h')
     rg = np.random.default_rng()
     lats = rg.uniform(-90., 90., N_LATS)
     lons = rg.uniform(-180., 180., N_LONS)
@@ -38,7 +38,7 @@ def space_time_regular_grid():
 @pytest.fixture(scope='module', autouse=True)
 def space_time_transect():
     N_STEPS = 50
-    times = pd.date_range('2024-01-01', periods=N_STEPS, freq='H')
+    times = pd.date_range('2024-01-01', periods=N_STEPS, freq='h')
     rg = np.random.default_rng()
     lats = rg.uniform(-90., 90., N_STEPS)
     lons = rg.uniform(-180., 180., N_STEPS)
