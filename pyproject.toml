@@ -7,7 +7,7 @@ name = "sunwhere"
 version = "1.3.4"
 description = "Calculation of solar geometry for solar resource assessment applications"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{name = "Jose A Ruiz-Arias", email = "jararias@uma.es"}]
 license = {text = "CC BY-NC-SA 4.0"}
 classifiers = [
@@ -19,10 +19,10 @@ classifiers = [
 
 dependencies = [
     "loguru>=0.7.3",
-    "numexpr>=2.10.0",
-    "numpy>=2.0.0",
-    "pandas>=2.2.2",
-    "xarray>=2025.6.1",
+    "numexpr>=2.14.1",
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "xarray>=2026.4.0",
 ]
 
 [project.urls]
@@ -36,7 +36,7 @@ Homepage = "https://github.com/jararias/sunwhere"
 dev = [
     "coverage>=7.13.5",
     "genbadge[tests]>=1.1.3",
-    "ipython>=8.39.0",
+    "ipython>=9.13.0",
     "lazydocs",
     "pvlib>=0.15.1",
     "pytest>=9.0.3",
@@ -65,8 +65,8 @@ cli = [
 managed = true
 
 [tool.uv.sources]
-soltrack = { git = "https://github.com/jararias/SolTrack" }
 lazydocs = { git = "https://github.com/jararias/lazydocs" }
+soltrack = { git = "https://github.com/jararias/soltrack" }
 
 [project.scripts]
 sunwhere = "sunwhere._cli.main:app"
