@@ -6,6 +6,7 @@ ipython3:
 .PHONY: init-venv
 init-venv:
 	@uv sync --reinstall
+	@attr -s com.dropbox.ignored -V 1 .venv  # instruct dropbox to ignore the .venv folder
 
 .PHONY: clean
 clean:
