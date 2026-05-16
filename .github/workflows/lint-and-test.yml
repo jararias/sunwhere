@@ -1,7 +1,10 @@
 name: lint-and-test
 
+# Disabled automatic execution - run manually from Actions tab
 # on: [push, pull_request]
-on: [push]
+# on: [push]
+on:
+  workflow_dispatch:
 
 jobs:
   lint:

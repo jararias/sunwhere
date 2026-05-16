@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "sunwhere"
-version = "1.3.4"
+version = "1.4.0"
 description = "Calculation of solar geometry for solar resource assessment applications"
 readme = "README.md"
 requires-python = ">=3.11"
