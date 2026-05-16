@@ -5,16 +5,24 @@ build-backend = "uv_build"
 [project]
 name = "sunwhere"
 version = "1.4.0"
-description = "Calculation of solar geometry for solar resource assessment applications"
+description = "Fast and accurate solar position calculations for solar resource assessment"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "Jose A Ruiz-Arias", email = "jararias@uma.es"}]
 license = {text = "CC BY-NC-SA 4.0"}
+keywords = ["solar", "sun position", "solar geometry", "solar resource"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Natural Language :: English",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
+    "License :: Other/Proprietary License",
 ]
 
 dependencies = [
@@ -27,6 +35,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/jararias/sunwhere"
+Documentation = "https://jararias.github.io/sunwhere"
+Repository = "https://github.com/jararias/sunwhere"
+Issues = "https://github.com/jararias/sunwhere/issues"
 
 [dependency-groups]
 # estas son las dependencias que se supone que solo los desarrolladores van a
