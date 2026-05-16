@@ -1,7 +1,7 @@
 
-# pylint: disable=broad-except
-
 # https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html
+
+from datetime import UTC
 
 import numpy as np
 import pandas as pd
@@ -9,43 +9,54 @@ import xarray as xr
 
 
 class Sunpos:
-    """Container class for [sunwhere](https://github.com/jararias/sunwhere) outputs.
-
-    Do not instantiate!!
-    """
+    """Container class for [sunwhere](https://github.com/jararias/sunwhere) outputs."""
 
     def __init__(self, times, latitude, longitude,
                  algorithm, engine, refraction, usecase,
-                 ecf, eot, declination, zenith, azimuth):
-        """Creates a Sunpos' instance.
+                 ecf, eot, declination, zenith, azimuth, site_names=None):
+        """Creates a Sunpos instance.
 
         Provides access to the solar geometry parameters, generally as
-        [xarray's DataArrays](https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html).
+        xarray DataArrays.
 
-        Args:
-            times (sequence of numpy datetime64, or convertible to it): times
-              where solar geometry is evaluated.
-            latitude (sequence of floats): latitude of the locations where
-              solar geometry is evaluated. Must be in the range [-90, 90].
-            longitude (sequence of floats): longitude of the locations where
-              solar geometry is evaluated. Must be in the range [-180, 180).
-            algorithm (str): solar position algorithm: nrel, psa or
-              iqbal.
-            engine (str): code implementation: numpy or numexpr
-            refraction (bool): whether atmospheric refraction is considered
-            usecase (str): sites, regular_grid or transect
-            ecf (1-dim array-like of floats): sun-earth distance (eccentricity)
-              correction factor.
-            eot (1-dim array-like of floats): equation of time, minutes
-            declination (1-dim array-like of floats): solar declination,
-              degrees
-            zenith (array of floats): solar zenith angle, degrees (1-dim for
-              transect, 2-dim for sites and 3-dim for regular_grid)
-            azimuth (array of floats): solar azimuth angle, degrees (1-dim for
-              transect, 2-dim for sites and 3-dim for regular_grid)
+        Parameters
+        ----------
+        times : array-like of datetime-like
+            Times where solar geometry is evaluated. Can be numpy datetime64 or
+            any type convertible to pandas DatetimeIndex.
+        latitude : array-like of float
+            Latitude of the locations where solar geometry is evaluated.
+            Must be in the range [-90, 90].
+        longitude : array-like of float
+            Longitude of the locations where solar geometry is evaluated.
+            Must be in the range [-180, 180).
+        algorithm : str
+            Solar position algorithm: 'nrel', 'psa', or 'iqbal'.
+        engine : str
+            Code implementation: 'numpy' or 'numexpr'.
+        refraction : bool
+            Whether atmospheric refraction is considered.
+        usecase : str
+            Use case: 'sites', 'regular_grid', or 'transect'.
+        ecf : array-like of float, shape (n_times,)
+            Sun-earth distance (eccentricity) correction factor.
+        eot : array-like of float, shape (n_times,)
+            Equation of time, in minutes.
+        declination : array-like of float, shape (n_times,)
+            Solar declination, in degrees.
+        zenith : ndarray
+            Solar zenith angle, in degrees. Shape varies by use case:
+            1-D for transect, 2-D for sites, 3-D for regular_grid.
+        azimuth : ndarray
+            Solar azimuth angle, in degrees. Shape varies by use case:
+            1-D for transect, 2-D for sites, 3-D for regular_grid.
+        site_names : array-like of str, optional
+            Names for each site (only used for 'sites' usecase).
 
-        Raises:
-            ValueError: if the inputs are not of the proper type or shape
+        Raises
+        ------
+        ValueError
+            If the inputs are not of the proper type or shape.
         """
 
         # I need that self._times is timezone-aware and ndmin==1. To ensure
@@ -57,17 +68,9 @@ class Sunpos:
         # the times to prevent numpy complains. Afterwards, I convert back to
         # pandas using again pd.to_datetime and localize
         _times = pd.to_datetime(times)
-
-        if _times.tz is None:
-            self._timezone = 'UTC'
-        elif hasattr(_times.tz, 'zone'):
-            self._timezone = _times.tz.zone
-        else:
-            self._timezone = 'UTC'
-
-        self._times = pd.to_datetime(
-            np.array(_times.tz_localize(None), ndmin=1, dtype='datetime64[ns]')
-        ).tz_localize(self._timezone, ambiguous='infer')
+        self._timezone = UTC if _times.tzinfo is None else _times.tzinfo
+        naive_np_times = np.array(_times.tz_localize(None), dtype='datetime64[ns]').reshape(-1)
+        self._times = pd.to_datetime(naive_np_times).tz_localize(self._timezone, ambiguous='infer')
 
         self._times_utc = pd.to_datetime(self._times).tz_convert('UTC')
 
@@ -82,6 +85,7 @@ class Sunpos:
         if usecase not in ('sites', 'regular_grid', 'transect'):
             raise ValueError(f'unknown use case `{usecase}`')
         self._usecase = usecase
+        self._site_names = site_names
 
         self._ecf = np.array(ecf)
         self._eot = np.array(eot)
@@ -95,68 +99,110 @@ class Sunpos:
 
         if self._usecase == 'sites':
             # sanity check
-            assert n_lats == n_lons
-            assert self._ecf.ndim == self._eot.ndim == self._declination.ndim == 1
-            assert self._ecf.shape == self._eot.shape == self._declination.shape == (n_times,)
-            assert self._zenith.ndim == self._azimuth.ndim == 2
-            assert self._zenith.shape == self._azimuth.shape == (n_times, n_lats)
+            if n_lats != n_lons:
+                raise ValueError(
+                    f'internal error: for sites usecase, expected n_lats == n_lons, '
+                    f'but got {n_lats} != {n_lons}')
+            if not (self._ecf.ndim == self._eot.ndim == self._declination.ndim == 1):
+                raise ValueError(
+                    f'internal error: expected 1-dim arrays for ecf, eot, declination, '
+                    f'but got {self._ecf.ndim}, {self._eot.ndim}, {self._declination.ndim}')
+            if not (self._ecf.shape == self._eot.shape == self._declination.shape == (n_times,)):
+                raise ValueError(
+                    f'internal error: expected shape ({n_times},) for ecf, eot, declination, '
+                    f'but got {self._ecf.shape}, {self._eot.shape}, {self._declination.shape}')
+            if not (self._zenith.ndim == self._azimuth.ndim == 2):
+                raise ValueError(
+                    f'internal error: expected 2-dim arrays for zenith and azimuth, '
+                    f'but got {self._zenith.ndim}, {self._azimuth.ndim}')
+            if not (self._zenith.shape == self._azimuth.shape == (n_times, n_lats)):
+                raise ValueError(
+                    f'internal error: expected shape ({n_times}, {n_lats}) for zenith and azimuth, '
+                    f'but got {self._zenith.shape}, {self._azimuth.shape}')
             # xarray coordinates
             coords = {
                 'time': np.array(self._times.tz_localize(None), dtype='datetime64[ns]'),
-                'location': range(n_lats),
-                'latitude': ('location', self._latitude),
-                'longitude': ('location', self._longitude)}
+                'site': self._site_names if self._site_names is not None else range(n_lats),
+                'lat': ('site', self._latitude),
+                'lon': ('site', self._longitude)}
             # xarray DataArrays
-            kwargs = {'coords': {k: coords[k] for k in ['location']}, 'dims': ['location']}
-            self._latitude = xr.DataArray(self._latitude, name='latitude', **kwargs)
-            self._longitude = xr.DataArray(self._longitude, name='longitude', **kwargs)
+            kwargs = {'coords': {k: coords[k] for k in ['site']}, 'dims': ['site']}
+            self._latitude = xr.DataArray(self._latitude, name='lat', **kwargs)
+            self._longitude = xr.DataArray(self._longitude, name='lon', **kwargs)
             kwargs = {'coords': {k: coords[k] for k in ['time']}, 'dims': ['time']}
             self._ecf = xr.DataArray(self._ecf, name='ecf', **kwargs)
             self._eot = xr.DataArray(self._eot, name='eot', **kwargs)
             self._declination = xr.DataArray(self._declination, name='declination', **kwargs)
-            kwargs = {'coords': coords, 'dims': ['time', 'location']}
+            kwargs = {'coords': coords, 'dims': ['time', 'site']}
             self._zenith = xr.DataArray(self._zenith, name='zenith', **kwargs)
             self._azimuth = xr.DataArray(self._azimuth, name='azimuth', **kwargs)
 
         if self._usecase == 'regular_grid':
             # sanity check
-            assert self._ecf.ndim == self._eot.ndim == self._declination.ndim == 1
-            assert self._ecf.shape == self._eot.shape == self._declination.shape == (n_times,)
-            assert self._zenith.ndim == self._azimuth.ndim == 3
-            assert self._zenith.shape == self._azimuth.shape == (n_times, n_lats, n_lons)
+            if not (self._ecf.ndim == self._eot.ndim == self._declination.ndim == 1):
+                raise ValueError(
+                    f'internal error: expected 1-dim arrays for ecf, eot, declination, '
+                    f'but got {self._ecf.ndim}, {self._eot.ndim}, {self._declination.ndim}')
+            if not (self._ecf.shape == self._eot.shape == self._declination.shape == (n_times,)):
+                raise ValueError(
+                    f'internal error: expected shape ({n_times},) for ecf, eot, declination, '
+                    f'but got {self._ecf.shape}, {self._eot.shape}, {self._declination.shape}')
+            if not (self._zenith.ndim == self._azimuth.ndim == 3):
+                raise ValueError(
+                    f'internal error: expected 3-dim arrays for zenith and azimuth, '
+                    f'but got {self._zenith.ndim}, {self._azimuth.ndim}')
+            if not (self._zenith.shape == self._azimuth.shape == (n_times, n_lats, n_lons)):
+                raise ValueError(
+                    f'internal error: expected shape ({n_times}, {n_lats}, {n_lons}) for zenith and azimuth, '
+                    f'but got {self._zenith.shape}, {self._azimuth.shape}')
             # xarray coordinates
             coords = {
                 'time': np.array(self._times.tz_localize(None), dtype='datetime64[ns]'),
-                'latitude': self._latitude, 'longitude': self._longitude}
+                'lat': self._latitude, 'lon': self._longitude}
             # xarray DataArrays
-            kwargs = {'coords': {k: coords[k] for k in ['latitude']}, 'dims': ['latitude']}
+            kwargs = {'coords': {k: coords[k] for k in ['lat']}, 'dims': ['lat']}
             self._latitude = xr.DataArray(self._latitude, name='latitude', **kwargs)
-            kwargs = {'coords': {k: coords[k] for k in ['longitude']}, 'dims': ['longitude']}
+            kwargs = {'coords': {k: coords[k] for k in ['lon']}, 'dims': ['lon']}
             self._longitude = xr.DataArray(self._longitude, name='longitude', **kwargs)
             kwargs = {'coords': {k: coords[k] for k in ['time']}, 'dims': ['time']}
             self._ecf = xr.DataArray(self._ecf, name='ecf', **kwargs)
             self._eot = xr.DataArray(self._eot, name='eot', **kwargs)
             self._declination = xr.DataArray(self._declination, name='declination', **kwargs)
-            kwargs = {'coords': coords, 'dims': ['time', 'latitude', 'longitude']}
+            kwargs = {'coords': coords, 'dims': ['time', 'lat', 'lon']}
             self._zenith = xr.DataArray(self._zenith, name='zenith', **kwargs)
             self._azimuth = xr.DataArray(self._azimuth, name='azimuth', **kwargs)
 
         if self._usecase == 'transect':
             # sanity check
-            assert n_times == n_lats == n_lons
-            assert self._ecf.ndim == self._eot.ndim == self._declination.ndim == 1
-            assert self._ecf.shape == self._eot.shape == self._declination.shape == (n_times,)
-            assert self._zenith.ndim == self._azimuth.ndim == 1
-            assert self._zenith.shape == self._azimuth.shape == (n_times,)
+            if not (n_times == n_lats == n_lons):
+                raise ValueError(
+                    f'internal error: for transect usecase, expected n_times == n_lats == n_lons, '
+                    f'but got {n_times}, {n_lats}, {n_lons}')
+            if not (self._ecf.ndim == self._eot.ndim == self._declination.ndim == 1):
+                raise ValueError(
+                    f'internal error: expected 1-dim arrays for ecf, eot, declination, '
+                    f'but got {self._ecf.ndim}, {self._eot.ndim}, {self._declination.ndim}')
+            if not (self._ecf.shape == self._eot.shape == self._declination.shape == (n_times,)):
+                raise ValueError(
+                    f'internal error: expected shape ({n_times},) for ecf, eot, declination, '
+                    f'but got {self._ecf.shape}, {self._eot.shape}, {self._declination.shape}')
+            if not (self._zenith.ndim == self._azimuth.ndim == 1):
+                raise ValueError(
+                    f'internal error: expected 1-dim arrays for zenith and azimuth, '
+                    f'but got {self._zenith.ndim}, {self._azimuth.ndim}')
+            if not (self._zenith.shape == self._azimuth.shape == (n_times,)):
+                raise ValueError(
+                    f'internal error: expected shape ({n_times},) for zenith and azimuth, '
+                    f'but got {self._zenith.shape}, {self._azimuth.shape}')
             # xarray coordinates
             coords = {
                 'time': np.array(self._times.tz_localize(None), dtype='datetime64[ns]'),
-                'latitude': ('time', self._latitude),
-                'longitude': ('time', self._longitude)}
+                'lat': ('time', self._latitude),
+                'lon': ('time', self._longitude)}
             # xarray DataArrays
             kwargs = {'coords': coords, 'dims': ['time']}
-            self._latitude = xr.DataArray(self._latitude, name='latitude', **kwargs)
-            self._longitude = xr.DataArray(self._longitude, name='longitude', **kwargs)
+            self._latitude = xr.DataArray(self._latitude, name='lat', **kwargs)
+            self._longitude = xr.DataArray(self._longitude, name='lon', **kwargs)
             self._ecf = xr.DataArray(self._ecf, name='ecf', **kwargs)
             self._eot = xr.DataArray(self._eot, name='eot', **kwargs)
             self._declination = xr.DataArray(self._declination, name='declination', **kwargs)
@@ -169,54 +215,109 @@ class Sunpos:
 
     @property
     def latitude(self):
-        """DataArray: Latitudes where solar geometry is evaluated, degrees."""
-        return self._latitude.rename('latitude').assign_attrs(
+        """Latitudes where solar geometry is evaluated, degrees.
+        
+        Returns
+        -------
+        xarray.DataArray:
+            Latitudes where solar geometry is evaluated, degrees.
+        """
+        return self._latitude.rename('lat').assign_attrs(
             units='degrees north')
 
     @property
     def longitude(self):
-        """DataArray: Longitudes where solar geometry is evaluated, degrees."""
-        return self._longitude.rename('longitude').assign_attrs(
+        """Longitudes.
+        
+        Returns
+        -------
+        xarray.DataArray:
+            Longitudes where solar geometry is evaluated, degrees.
+        """
+        return self._longitude.rename('lon').assign_attrs(
             units='degrees east')
 
     @property
     def times(self):
-        """Array of datetime64: Times where solar geometry is evaluated."""
+        """Times where solar geometry is evaluated.
+        
+        Returns
+        -------
+        np.ndarray[tuple[int], np.datetime64]:
+            Times where solar geometry is evaluated.
+        """
         return self._times   # np.array(self._times, dtype='datetime64[ns]')
 
     @property
     def times_utc(self):
-        """Array of datetime64: Universal coordinated times where solar geometry is evaluated."""
+        """Universal coordinated times where solar geometry is evaluated.
+        
+        Returns
+        -------
+        np.ndarray[tuple[int], np.datetime64]:
+            Universal coordinated times.
+        """
         return self._times_utc  # np.array(self._times_utc, dtype='datetime64[ns]')
 
     @property
     def algorithm(self):
-        """str: Solar position algorithm."""
+        """Solar position algorithm.
+        
+        Returns
+        -------
+        str: solar position algorithm.
+        """
         return self._algorithm
 
     @property
     def engine(self):
-        """str: calculation engine."""
+        """Calculation engine.
+        
+        Returns
+        -------
+        str: calculation engine.
+        """
         return self._engine
 
     @property
     def has_refraction(self):
-        """bool: whether solar zenith angle consideres atmospheric refraction."""
+        """Whether solar zenith angle consideres atmospheric refraction.
+        
+        Returns
+        -------
+        bool: True if refraction is considered, False otherwise.
+        """
         return self._refraction
 
     @property
     def usecase(self):
-        """str: usage case."""
+        """Usage case.
+        
+        Returns
+        -------
+        str: usage case.
+        """
         return self._usecase
 
     @property
     def timezone(self):
-        """str: times time zone."""
+        """Timezone.
+        
+        Returns
+        -------
+        str: time zone.
+        """
         return self._timezone
 
     @property
     def true_solar_time(self):
-        """DataArray: True solar time, known also to as local apparent time."""
+        """True solar time.
+        
+        Returns
+        -------
+        xarray.DataArray:
+            True solar time, known also to as local apparent time.
+        """
         dt64 = np.datetime64(1, 'ns')
 
         utc_f = xr.DataArray(
@@ -230,12 +331,24 @@ class Sunpos:
 
     @property
     def local_standard_time(self):
-        """Array of datetime64: Times where solar geometry is evaluated."""
+        """Local standard time.
+        
+        Returns
+        -------
+        np.ndarray[tuple[int], np.datetime64]:
+            Local standard time.
+        """
         return self.times
 
     @property
     def ecf(self):
-        """DataArray: sun-earth orbit's eccentricity correction factor."""
+        """Sun-earth orbit's eccentricity correction factor.
+        
+        Returns
+        -------
+        xarray.DataArray:
+            Sun-earth distance correction factor.
+        """
         return self._ecf.rename('ecf').assign_attrs(
             units='-',
             description='sun-earth distance correction factor'
@@ -243,26 +356,50 @@ class Sunpos:
 
     @property
     def eot(self):
-        """DataArray: equation of time, in minutes."""
+        """Equation of time.
+        
+        Returns
+        -------
+        xarray.DataArray:
+            Equation of time, in minutes.
+        """
         return self._eot.rename('eot').assign_attrs(
             units='minutes',
             description='equation of time')
 
     @property
     def declination(self):
-        """DataArray: solar declination, in degrees."""
+        """Solar declination.
+        
+        Returns
+        -------
+        xarray.DataArray:
+            Solar declination, in degrees.
+        """
         return np.degrees(self._declination).rename('declination').assign_attrs(
             units='degrees',
             description='solar declination')
 
     @property
     def dec(self):
-        """DataArray: solar declination, in degrees. Alias for `declination`."""
+        """Solar declination.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Solar declination, in degrees. Alias for `declination`.
+        """
         return self.declination
 
     @property
     def zenith(self):
-        """DataArray: solar zenith angle, in degrees [0, 180]."""
+        """Solar zenith angle.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Solar zenith angle, in degrees [0, 180].
+        """
         return np.degrees(self._zenith).rename('zenith').assign_attrs(
             units='degrees',
             range='[0, 180]',
@@ -270,12 +407,24 @@ class Sunpos:
 
     @property
     def sza(self):
-        """DataArray: solar zenith angle, in degrees [0, 180]. Alias for `zenith`."""
+        """Solar zenith angle.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Solar zenith angle, in degrees [0, 180]. Alias for `zenith`.
+        """
         return self.zenith.rename('sza')
 
     @property
     def elevation(self):
-        """DataArray: solar elevation angle, in degrees [-90, 90]."""
+        """Solar elevation angle.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Solar elevation angle, in degrees [-90, 90].
+        """
         return (90. - self.zenith).rename('elevation').assign_attrs(
             units='degrees',
             range='[-90, 90]',
@@ -283,7 +432,13 @@ class Sunpos:
 
     @property
     def azimuth(self):
-        """DataArray: solar azimuth angle, in degrees [-180\u00b0, 180\u00b0], zero south."""
+        """Solar azimuth angle.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Solar azimuth angle, in degrees [-180\u00b0, 180\u00b0], zero south.
+        """
         return np.degrees(self._azimuth).rename('azimuth').assign_attrs(
             units='degrees',
             range='(-180 am, 180 pm)',
@@ -292,12 +447,24 @@ class Sunpos:
 
     @property
     def saa(self):
-        """DataArray: solar azimuth angle, in degrees [-180\u00b0, 180\u00b0], zero south. Alias for `azimuth`."""
+        """Solar azimuth angle.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Solar azimuth angle, in degrees [-180°, 180°], zero south. Alias for `azimuth`.
+        """
         return self.azimuth.rename('saa')
 
     @property
     def cosz(self):
-        """DataArray: cosine of solar zenith angle."""
+        """Cosine of solar zenith angle.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Cosine of solar zenith angle.
+        """
         return np.cos(self._zenith).rename('cosz').assign_attrs(
             units='-',
             range='[-1, 1]',
@@ -306,37 +473,44 @@ class Sunpos:
     def eth(self, ISC=1361.1, am_correction='none'):
         """Extraterrestrial horizontal solar irradiance.
 
-        Calculates the extraterrestrial horizontal solar irradiance, in W m^-2,
+        Calculates the extraterrestrial horizontal solar irradiance, in W m⁻²,
         with optional corrections to account for solar eclipse obscuration
         and for the effect of high optical airmass if eth is used to evaluate
-        clearness index
+        clearness index.
 
-        Args:
-            ISC (float): Solar constant, in W m<supersript>-2</superscript>
-            am_correction (str): whether use airmass correction. Useful if eth is
-              intended to evaluate the clearness index. Allowed values are `none`,
-              `perez_1990` [1], `skarveith_1998` [2] and
-              `gonzalez_and_calbo_1999` [3]
+        Parameters
+        ----------
+        ISC : float, optional
+            Solar constant, in W m⁻². Default is 1361.1.
+        am_correction : str, optional
+            Whether to use airmass correction. Useful if eth is intended to
+            evaluate the clearness index. Allowed values are 'none',
+            'perez_1990', 'skarveith_1998', and 'gonzalez_and_calbo_1999'.
+            Default is 'none'.
 
-        Returns:
-            A xarray's DataArray
+        Returns
+        -------
+        xarray.DataArray
+            Extraterrestrial horizontal solar irradiance.
 
-        Raises:
-            ValueError: if am_correction is unknown
+        Raises
+        ------
+        ValueError
+            If am_correction is unknown.
 
-        References:
+        References
+        ----------
+        1. Perez et al. (1990) Making full use of the clearness index for
+           parameterizing hourly insolation conditions. Sol Energy, Vol. 45(2),
+           pp 111-114. https://doi.org/10.1016/0038-092X(90)90036-C
 
-            [1] Perez et al. (1990) Making full use of the clearness index for
-            parameterizing hourly insolation conditions. Sol Energy, Vol. 45(2),
-            pp 111-114. doi 10.1016/0038-092X(90)90036-C
+        2. Skartveit et al. (1998) An hourly diffuse fraction model with
+           correction for variability and surface albedo. Sol Energy, Vol. 63(3),
+           pp. 173-183. https://doi.org/10.1016/S0038-092X(98)00067-X
 
-            [2] Skartveit et al. (1998) An hourly diffuse fraction model with
-            correction for variability and surface albedo. Sol Energy, Vol. 63(3),
-            pp. 173-183. doi 10.1016/S0038-092X(98)00067-X
-
-            [3] González and Calbó (1999) Influence of the global radiation
-            variability on the hourly diffuse fraction correlations. Sol Energy,
-            Vol. 65(2), pp. 119-131. doi 10.1016/S0038-092X(98)00121-2
+        3. González and Calbó (1999) Influence of the global radiation
+           variability on the hourly diffuse fraction correlations. Sol Energy,
+           Vol. 65(2), pp. 119-131. https://doi.org/10.1016/S0038-092X(98)00121-2
         """
 
         eth = ISC*self.ecf*np.maximum(0., self.cosz)
@@ -363,35 +537,41 @@ class Sunpos:
         """Atmosphere relative optical air mass.
 
         Calculates the relative optical air mass of the atmosphere according
-        to various parameterizations
+        to various parameterizations.
 
-        Args:
-            parameterization (str): `kasten_1965` [1], `kasten_and_young_1989` [2],
-            `gueymard_2001` [3] and `gueymard_2003` [4]
+        Parameters
+        ----------
+        parameterization : str, optional
+            Parameterization to use: 'kasten_1965', 'kasten_and_young_1989',
+            'gueymard_2001', or 'gueymard_2003'. Default is 'gueymard_2003'.
 
-        Returns:
-            A xarray's DataArray
+        Returns
+        -------
+        xarray.DataArray
+            Relative optical air mass.
 
-        Raises:
-            ValueError: if the parameterization is unknown
+        Raises
+        ------
+        ValueError
+            If the parameterization is unknown.
 
-        References:
+        References
+        ----------
+        1. Table V in Kasten, F. (1965) A new table and approximation
+           formula for the relative optical air mass. CRREL Tech. Report 136
 
-            [1] Table V in Kasten, F. (1965) A new table and approximation
-            formula for the relative optical air mass. CRREL Tech. Report 136
+        2. Kasten, F. and Young, A.T. (1989) Revised optical air mass
+           tables and approximation formula. Applied Optics. Vol. 28(22),
+           pp. 4735-4738. https://doi.org/10.1364/AO.28.004735
 
-            [2] Kasten, F. and Young, A.T. (1989) Revised optical air mass
-            tables and approximation formula. Applied Optics. Vol. 28(22),
-            pp. 4735-4738. doi 10.1364/AO.28.004735
+        3. Table A.1 in Gueymard, C.A. (2001) Parameterized transmittance
+           model for direct bean and circumsolar spectral irradiance. Sol
+           Energy, Vol. 71(5), pp. 325-346. https://doi.org/10.1016/S0038-092X(01)00054-8
 
-            [3] Table A.1 in Gueymard, C.A. (2001) Parameterized transmittance
-            model for direct bean and circumsolar spectral irradiance. Sol
-            Energy, Vol. 71(5), pp. 325-346. doi 10.1016/S0038-092X(01)00054-8
-
-            [4] Eq. B.8 in Gueymard, C.A. (2003) Direct solar transmittance
-            and irradiance predictions with broadband models. Part I - Detailed
-            theoretical performance assessment. Sol Energy, Vol. 74, pp. 355-379
-            doi 10.1016/S0038-092X(03)00195-6
+        4. Eq. B.8 in Gueymard, C.A. (2003) Direct solar transmittance
+           and irradiance predictions with broadband models. Part I - Detailed
+           theoretical performance assessment. Sol Energy, Vol. 74, pp. 355-379.
+           https://doi.org/10.1016/S0038-092X(03)00195-6
         """
 
         if parameterization == 'kasten_1965':
@@ -421,27 +601,36 @@ class Sunpos:
         )
 
     def sunrise(self, units='deg'):
-        """Sunrise.
+        """Sunrise angle or time.
 
-        Calculates the sunrise angle or sunrise time
+        Calculates the sunrise angle or sunrise time.
 
-        Args:
-            units (str): `deg` for sunrise angle in degrees, `rad` for
-            radians, `tst` for true solar time sunrise, `utc` for UTC and
-            `local` for local time sunrise
+        Parameters
+        ----------
+        units : str, optional
+            Output units: 'deg' for sunrise angle in degrees, 'rad' for radians,
+            'tst' for true solar time sunrise, 'utc' for UTC, and 'local' for
+            local time sunrise. Default is 'deg'.
 
-        Returns:
-            A xarray's DataArray
+        Returns
+        -------
+        xarray.DataArray
+            Sunrise angle or time.
 
-        Raises:
-            ValueError: if units are unknown
+        Raises
+        ------
+        ValueError
+            If units are unknown.
 
-        References:
-
-            [1] Eq. (1.5.4) in Iqbal, M., An Introduction to Solar Radiation,
-            Academic Press, 1983.
+        References
+        ----------
+        1. Eq. (1.5.4) in Iqbal, M., An Introduction to Solar Radiation,
+           Academic Press, 1983.
         """
-        assert units in ('rad', 'deg', 'tst', 'utc', 'local')
+        if units not in ('rad', 'deg', 'tst', 'utc', 'local'):
+            raise ValueError(
+                f'invalid units {units!r}, expected one of: '
+                f"'rad', 'deg', 'tst', 'utc', 'local'")
 
         tanlat = np.tan(np.radians(self.latitude))
         tandec = np.tan(np.radians(self.declination))
@@ -490,27 +679,36 @@ class Sunpos:
         )
 
     def sunset(self, units='deg'):
-        """Sunset.
+        """Sunset angle or time.
 
-        Calculates the sunset angle or sunset time
+        Calculates the sunset angle or sunset time.
 
-        Args:
-            units (str): `deg` for sunset angle in degrees, `rad` for
-            radians, `tst` for true solar time sunset, `utc` for UTC and
-            `local` for local time sunset
+        Parameters
+        ----------
+        units : str, optional
+            Output units: 'deg' for sunset angle in degrees, 'rad' for radians,
+            'tst' for true solar time sunset, 'utc' for UTC, and 'local' for
+            local time sunset. Default is 'deg'.
 
-        Returns:
-            A xarray's DataArray
+        Returns
+        -------
+        xarray.DataArray
+            Sunset angle or time.
 
-        Raises:
-            ValueError: if units are unknown
+        Raises
+        ------
+        ValueError
+            If units are unknown.
 
-        References:
-
-            [1] Eq. (1.5.4) in Iqbal, M., An Introduction to Solar Radiation,
-            Academic Press, 1983.
+        References
+        ----------
+        1. Eq. (1.5.4) in Iqbal, M., An Introduction to Solar Radiation,
+           Academic Press, 1983.
         """
-        assert units in ('rad', 'deg', 'tst', 'utc', 'local')
+        if units not in ('rad', 'deg', 'tst', 'utc', 'local'):
+            raise ValueError(
+                f'invalid units {units!r}, expected one of: '
+                f"'rad', 'deg', 'tst', 'utc', 'local'")
 
         if units in ('tst', 'utc', 'local'):
             wsr = self.sunrise(units)
@@ -532,10 +730,15 @@ class Sunpos:
     def daylight_length(self):
         """Daylight length, in hours.
 
-        References:
+        Returns
+        -------
+        xarray.DataArray
+            Daylight length in hours.
 
-            [1] Eq. (1.5.5) in Iqbal, M., An Introduction to Solar Radiation,
-            Academic Press, 1983.
+        References
+        ----------
+        1. Eq. (1.5.5) in Iqbal, M., An Introduction to Solar Radiation,
+           Academic Press, 1983.
         """
         return (2./15.)*self.sunrise(units='deg').rename('daylight_length').assign_attrs(
             units='hour',
@@ -547,14 +750,22 @@ class Sunpos:
 
         Calculates the cosine of the solar incidence angle.
 
-        Args:
-            sfc_slope (float): surface slope, in degrees
-            sfc_azimuth (float): surface orientation, in degrees east positive
+        Parameters
+        ----------
+        sfc_slope : float
+            Surface slope, in degrees.
+        sfc_azimuth : float
+            Surface orientation, in degrees (east positive).
 
-        References:
+        Returns
+        -------
+        xarray.DataArray
+            Cosine of the angle of incidence.
 
-            [1] Eq. (1.6.5a) in Iqbal, M., An Introduction to Solar Radiation,
-            Academic Press, 1983.
+        References
+        ----------
+        1. Eq. (1.6.5a) in Iqbal, M., An Introduction to Solar Radiation,
+           Academic Press, 1983.
         """
         # hour angle...
         tst = self.true_solar_time.to_numpy()

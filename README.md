@@ -7,7 +7,7 @@
 *sunwhere* is tailored for typical applications in solar resource assessment 🌞. It provides the solar zenith and azimuth angles, the sun-earth's distance correction factor, and secondary parameters such as solar declination, equation of time, and sunrise and sunset times, among others.
 
 ## Main features
-*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2], SolTrack[^3] or Iqbal[^4] solar position algorithms (or SPAs), which provide alternative levels of [accuracy and speed](https://github.com/jararias/sunwhere/tree/main#benchmark-which-spa-to-choose) for each application's requirements.
+*sunwhere* optionally uses the NREL[^1], Plataforma Solar de Almería (PSA)[^2], or Iqbal[^3] solar position algorithms (or SPAs), which provide alternative levels of [accuracy and speed](https://github.com/jararias/sunwhere/tree/main#benchmark-which-spa-to-choose) for each application's requirements.
 
 *sunwhere* focuses on usage cases to optimize the computing performance. Three cases are specifically considered that hopefully cover most practical situations:
 
@@ -23,8 +23,7 @@ Conversely, other packages only consider single-location calculations, having to
 
 [^1]: Reda I and Andreas A, 2003. Solar Position Algorithm for Solar Radiation Applications. 55 pp.; NREL Report No. TP-560-34302, Revised January 2008 [pdf](http://www.nrel.gov/docs/fy08osti/34302.pdf) [url](https://midcdmz.nrel.gov/spa/).
 [^2]: Blanco, M. et al. 2020. Updating the PSA sun position algorithm. Solar Energy, Vol. 212, pp. 339-341, and Blanco-Muriel, M. et al. 2001. Computing the solar vector. Solar Energy, Vol. 70, pp. 431-441 [url](https://doi.org/10.1016/j.solener.2020.10.084).
-[^3]: van der Sluys M and van Kan P, 2022. SolTrack: a free, fast and accurate routine to compute the position of the Sun [url](https://doi.org/10.48550/arXiv.2209.01557) [code](https://github.com/MarcvdSluys/SolTrack-Python)
-[^4]: Iqbal, M., An introduction to solar radiation. Academic Press. 1983 [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
+[^3]: Iqbal, M., An introduction to solar radiation. Academic Press. 1983 [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
 
 ## Installation
 
@@ -92,20 +91,20 @@ pl.rcParams['axes.labelsize'] = 'small'
 pl.rcParams['xtick.labelsize'] = 'small'
 pl.rcParams['ytick.labelsize'] = 'small'
 pl.figure(figsize=(12, 6), layout='constrained')
-for k in range(len(sw.sza.location)):
+for k in range(len(sw.sza.site)):
     pl.subplot(2, 3, k+2)
-    sw.sza.isel(location=k).plot(label='zenith')
-    sw.elevation.isel(location=k).plot(label='elevation')
+    sw.sza.isel(site=k).plot(label='zenith')
+    sw.elevation.isel(site=k).plot(label='elevation')
 pl.legend()
 
 # draw the locations in a map...
 ax = pl.subplot(231, projection=ccrs.PlateCarree())
-location = sw.sza.coords['location'].to_numpy()
+site = sw.sza.coords['site'].to_numpy()
 latitude = sw.sza.coords['latitude'].to_numpy()
 longitude = sw.sza.coords['longitude'].to_numpy()
-for loc, lon, lat in zip(location, longitude, latitude):
+for s, lon, lat in zip(site, longitude, latitude):
     ax.plot(lon, lat, 'r.', ms=8)
-    ax.text(lon, lat, loc, ha='left', va='bottom')
+    ax.text(lon, lat, s, ha='left', va='bottom')
 ax.coastlines(lw=0.5, color='0.5')
 ax.set_global()
 
@@ -265,7 +264,7 @@ sunwhere --help
 
 ## Benchmark: which SPA to choose?
 
-_sunwhere_ is equipped with 4 solar position algorithms (abbreviately, SPAs) to perform the solar position calculations, namely: `nrel`, `spa`, `soltrack` and `iqbal`. Hence, a pertinent question in the _sunwhere_'s context is which SPA to choose for the calculations.
+_sunwhere_ is equipped with 3 public solar position algorithms (abbreviately, SPAs) to perform the solar position calculations, namely: `nrel`, `psa`, and `iqbal`. Hence, a pertinent question in the _sunwhere_'s context is which SPA to choose for the calculations.
 
 There are various factors to account for when one has to decide which SPA to use. Although the accuracy of the ephemerides appears the most obvious one, it might not be always the most relevant. For instance, when working with solar resource assessment, the solar irradiance accuracy is probably more important and, in very large datasets, even the computation times can be determinant to choose one or another. In the analysis that follows, I try to shed some light on these questions.
 
@@ -277,7 +276,7 @@ As the truth reference to evaluate the accuracy of the ephemerides calculated wi
 
 ![accuracy benchmark](assets/accuracy_benchmark.png)
 
-The SPAs seem organized in three accuracy classes: IQBAL alone in one group; PSA, SOLTRACK and EPHEMERIS, in a higher-accuracy group; and NREL and PYEPHEM, and maybe SG2 too, in another group with even higher accuracy. The zenith and azimuth errors are similar in any case.
+The SPAs seem organized in three accuracy classes: IQBAL alone in one group; PSA and EPHEMERIS, in a higher-accuracy group; and NREL and PYEPHEM, and maybe SG2 too, in another group with even higher accuracy. The zenith and azimuth errors are similar in any case.
 
 The next table shows numerical results for the solar zenith angle errors. The rows are organized by increasing RMSE. The columns ±CI66 and ±CI90 are the symmetric intervals around MBE that encompass 66% and 90% of the errors, respectively. These results show more clearly that the NREL SPA has the smaller overall deviation with respect to the JPL ephemerides (0.182 arc-sec RMSE) and that both PYEPHEM and SG2 have slightly greater deviations, but still significantly lower than the rest of SPAs.
 
@@ -340,7 +339,7 @@ The plots below summarize the performance tests conducted in three different sit
 
 ![accuracy benchmark](assets/exec_time_benchmark.png)
 
-The first case (left plot) is for single-location calculations, for time series of several lenghts from 1 to 500,000 time steps. (50,000 time steps is about one month of 1-min time steps and 500,000 is about one year of 1-min time steps.) Note the logarithmic color scale. If, according to the previous solar irradiance analysis, we don't distinguish between SPAs other than IQBAL, the fastest are the _sunwhere_'s _numexpr_ PSA and SolTrack. However, should we need higher accuracy, then NREL (or even SG2) should be considered. In such case, the fastest options would be the pvlib's numba NREL or SG2. However, the former requires on-the-fly compilation which may discourage its use for short time series. In any case, the total execution times here are so small in either case that, in practice, nearly all SPAs are equivalent in terms of simulation speed.
+The first case (left plot) is for single-location calculations, for time series of several lenghts from 1 to 500,000 time steps. (50,000 time steps is about one month of 1-min time steps and 500,000 is about one year of 1-min time steps.) Note the logarithmic color scale. If, according to the previous solar irradiance analysis, we don't distinguish between SPAs other than IQBAL, the fastest are the _sunwhere_'s _numexpr_ PSA. However, should we need higher accuracy, then NREL (or even SG2) should be considered. In such case, the fastest options would be the pvlib's numba NREL or SG2. However, the former requires on-the-fly compilation which may discourage its use for short time series. In any case, the total execution times here are so small in either case that, in practice, nearly all SPAs are equivalent in terms of simulation speed.
 
 The second case (middle plot) is for multi-site calculations (100 sites) over a common time grid. Here, _sunwhere_ starts shining over all other SPAs, especially for long time series, when the execution times are not negligible (in contrast with the single-location case). For instance, the _sunwhere_'s _numexpr_ NREL is about 11 times faster than the pvlib's _numba_ NREL and about 80 times faster than the pvlib's _numpy_ NREL. SG2 has also an outstanding performance, only 2 seconds slower. However, the _sunwhere_'s _numexpr_ PSA is much faster, since it requires only 1.7 seconds to compute the ephemerides for the the 100 locations over a time grid of 500,000 time steps.
 

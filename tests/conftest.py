@@ -19,9 +19,9 @@ def get_da_for_sites(da):
 def get_da_for_regular_grid(da):
     if da.coords.dims == ('time',):
         return da.to_numpy()
-    if da.coords.dims == ('time', 'location'):
-        return da.isel(location=0).to_numpy()
-    return da.isel(latitude=0, longitude=0).to_numpy()
+    if da.coords.dims == ('time', 'site'):
+        return da.isel(site=0).to_numpy()
+    return da.isel(lat=0, lon=0).to_numpy()
 
 
 def get_da_for_transect(da):

@@ -28,6 +28,10 @@ share/python-wheels/
 MANIFEST
 htmlcov/
 .pytest_cache/
+.coverage
+
+# documentation
+site/
 
 # Installer logs
 pip-log.txt
@@ -41,3 +45,5 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.ipython/
+.cache/

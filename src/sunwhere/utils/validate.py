@@ -56,7 +56,7 @@ def check_timelatlon(times, latitude, longitude, ndim, dtype=None, dt64=None):
     if latitude.ndim > 1:
         raise ValueError(
             'illegal shape: expected a 0-dim or 1-dim array of '
-            f'latitudes but but got {longitude.ndim}-dim array')
+            f'latitudes but got {longitude.ndim}-dim array')
 
     # if not (np.all(-90 <= latitude, where=~np.isnan(latitude)) and
     #         np.all(latitude <= +90., where=~np.isnan(latitude))):

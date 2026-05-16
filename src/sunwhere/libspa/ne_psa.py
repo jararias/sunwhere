@@ -19,7 +19,8 @@ def sunpos(unixtime, longitude, latitude, ndim=1, with_refraction=True):
     # unixtime: seconds since 1970-01-01T00
 
     ndim = int(ndim)
-    assert ndim in (0, 1, 2), 'unexpected ndim %d' % ndim
+    if ndim not in (0, 1, 2):
+        raise ValueError(f'unexpected ndim {ndim}, expected 0, 1, or 2')
     # =0: scalar computation (all calculations are performed cell by cell)
     # =1: time-optimized calculation: the time grid is common to all cells
     #     but the space-related calculations are peformed cell by cell
@@ -37,7 +38,10 @@ def sunpos(unixtime, longitude, latitude, ndim=1, with_refraction=True):
         # -- one dimensional space: (n_locations,) == (n_times,)
 
         condition = unixtime.size == longitude.size == latitude.size
-        assert condition, 'unixtime, latitude and longitude must have same shape'
+        if not condition:
+            raise ValueError(
+                f'unixtime, latitude and longitude must have same shape, '
+                f'but got {unixtime.size}, {latitude.size}, and {longitude.size}')
 
         sza, saa, ecf, decl, eot = _sunpos_one_dimensional(
             unixtime, longitude, latitude, with_refraction)
@@ -47,7 +51,10 @@ def sunpos(unixtime, longitude, latitude, ndim=1, with_refraction=True):
         # -- two dimensional space: (n_times, n_locations)
 
         condition = longitude.size == latitude.size
-        assert condition, 'longitude and latitude must have same shape'
+        if not condition:
+            raise ValueError(
+                f'longitude and latitude must have same shape, '
+                f'but got {longitude.size} and {latitude.size}')
 
         sza, saa, ecf, decl, eot = _sunpos_two_dimensional(
             unixtime, longitude, latitude, with_refraction)

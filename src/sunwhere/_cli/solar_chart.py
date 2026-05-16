@@ -19,14 +19,18 @@ pl.rcParams['ytick.labelsize'] = 14
 class SolarPosition:
     def __init__(self, latitude, longitude=0):
         self.latitude = latitude
-        assert -90 <= latitude <= 90
+        if not (-90 <= latitude <= 90):
+            raise ValueError(
+                f'latitude {latitude} out of bounds, expected [-90, 90]')
         self.longitude = longitude
-        assert -180 <= longitude < 180
+        if not (-180 <= longitude < 180):
+            raise ValueError(
+                f'longitude {longitude} out of bounds, expected [-180, 180)')
 
     def __call__(self, times):
         sw = sunwhere.sites(times, self.latitude, self.longitude)
-        return {'azimuth': sw.saa.isel(location=0).to_numpy(),
-                'altitude': sw.elevation.isel(location=0).to_numpy()}
+        return {'azimuth': sw.saa.isel(site=0).to_numpy(),
+                'altitude': sw.elevation.isel(site=0).to_numpy()}
 
 
 class SolarChart(object):
@@ -40,9 +44,13 @@ class SolarChart(object):
     def __init__(self, latitude, longitude=0, user_datetime=None,
                  timezone=None, polar=True):
         self.latitude = float(latitude)
-        assert -90 < self.latitude < 90
+        if not (-90 < self.latitude < 90):
+            raise ValueError(
+                f'latitude {self.latitude} out of bounds, expected (-90, 90) exclusive')
         self.longitude = float(longitude)
-        assert -180 <= self.longitude <= 180
+        if not (-180 <= self.longitude <= 180):
+            raise ValueError(
+                f'longitude {self.longitude} out of bounds, expected [-180, 180]')
         self._user_datetime = user_datetime
         self._timezone = timezone or 'UTC'
         self.sunpath = SolarPosition(latitude, longitude)

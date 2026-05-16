@@ -1,6 +1,8 @@
 
 # pylint: disable=protected-access
 
+from typing import Literal, Sequence
+
 import numpy as np
 import pandas as pd
 
@@ -19,70 +21,133 @@ from .utils.validate import check_dimensions
 #  TIME-INVARIANT IF THE LOCATIONS ARE FIXED, TIME-VARIANT OTHERWISE
 
 
-def sites(times, latitude, longitude, algorithm='psa',
-          refraction=True, engine='numexpr'):
-    """Solar position across an arbitrary number of locations throughout a common time grid.
+def sites(
+    times: np.ndarray[tuple[int], np.datetime64] | pd.DatetimeIndex,
+    latitude: np.ndarray[tuple[int]] | Sequence[float] | float,
+    longitude: np.ndarray[tuple[int]] | Sequence[float] | float,
+    algorithm: Literal['psa', 'nrel', 'iqbal'] = 'psa',
+    refraction: bool = True,
+    engine: Literal['numexpr', 'numpy'] = 'numexpr',
+    site_names: Sequence[str] | None = None,
+) -> Sunpos:
+    """
+    Compute solar position at arbitrarily dispersed locations over a common time series.
 
-    Latitude and longitude *must* have the same size.
+    This function calculates solar position (zenith and azimuth angles, declination,
+    etc.) for an arbitrary number of fixed geographic locations throughout a common
+    time grid. All locations share the same time instants.
 
-    Args:
-        times (1-dim array of datetime64, or similar, of size K): Time
-            instants at which solar position is evaluated. Similar types
-            are, for instance, datetime and pandas DatetimeIndex.
-        latitude (scalar or 1-dim array like of floats of size J): Latitudes
-            (degrees) where solar position is evaluated. It must be in the
-            range [-90, 90].
-        longitude (scalar or 1-dim array like of floats of size J): Longitudes
-            (degrees) where solar position is evaluated. It must be in the
-            range [-180, 180].
-        algorithm ({_nrel_, _psa_, _soltrack_, _iqbal_}): Solar position algorithm.
-            _nrel_ is for NREL's SPA [1], valid for the years -2000 to 6000.
-            Its expected uncertainty is +/- 0.0003 degrees. _psa_ is for the
-            Plataforma Solar de Almería's (PSA) algorithm [2] with updated
-            coefficients for the period 2020-2050 [3]. Its expected average
-            error is 0.002 degrees, but it is faster than _nrel_. _soltrack_
-            [4] is similar in performance to _psa_. _iqbal_ is for the algorithm
-            described in Iqbal, M. [5], which has lower accuracy than the former
-            algorithms.
-        refraction (bool): Whether atmospheric refraction must be considered.
-        engine ({_numpy_, _numexpr_}): Baseline code implementation to perform
-            the solar position calculations. _numexpr_ is expected to be faster
-            than numpy, especially for big spatial and/or temporal grids.
+    Parameters
+    ----------
+    times : array-like of datetime-like, shape (K,)
+        Time instants at which solar position is evaluated. Can be datetime.datetime,
+        pandas.DatetimeIndex, numpy.datetime64, or any type accepted by
+        pandas.to_datetime(). Timezone-naive inputs are assumed to be UTC.
+    latitude : float or array-like of float, shape (J,)
+        Latitudes in degrees where solar position is evaluated.
+        Valid range: [-90, 90]. Must have the same size as longitude.
+    longitude : float or array-like of float, shape (J,)
+        Longitudes in degrees where solar position is evaluated.
+        Valid range: [-180, 180). Must have the same size as latitude.
+    algorithm : {'psa', 'nrel', 'iqbal'}, optional
+        Solar position algorithm to use:
+        - 'psa': Plataforma Solar de Almería algorithm [1] with updated
+          coefficients [2]. Fast and accurate (avg error ~0.002°). Default.
+        - 'nrel': NREL's SPA algorithm [3]. Most accurate (±0.0003°) but slower.
+          Valid for years -2000 to 6000.
+        - 'iqbal': Iqbal's algorithm [4]. Lower accuracy, mainly for educational use.
+    refraction : bool, optional
+        If True (default), applies atmospheric refraction correction to zenith angle.
+        Typically adds ~0.5° correction near the horizon.
+    engine : {'numexpr', 'numpy'}, optional
+        Computation engine. 'numexpr' (default) is faster for large arrays,
+        'numpy' may be faster for small arrays.
+    site_names : array-like of str, shape (J,), optional
+        Custom names for each site. If provided, must have the same length as
+        latitude and longitude. These names will be used as a coordinate for the
+        'site' dimension, enabling labeled selection like ``result.sza.sel(site='Madrid')``.
+        If None (default), sites are indexed numerically (0, 1, 2, ...).
 
-    Returns:
-        A Sunpos instance in which the shape of the variables that are not
-        location-dependent (e.g., declination) is (K,) and that of the
-        location-dependent variables (e.g., zenith) is (K, J).
+    Returns
+    -------
+    sunpos : Sunpos
+        Object containing solar position data as xarray DataArrays with dimensions:
+        
+        - Time-dependent only (K,): dec, eot, ecf
+        - Time and location dependent (K, J): sza, saa, elevation, azimuth, zenith, cosz
 
-    References:
+    Notes
+    -----
+    - Latitude and longitude arrays must have the same length.
+    - For a single location, use scalar values for latitude and longitude.
+    - All times must be unique and monotonically increasing for best performance.
+    - The refraction correction uses a simple model suitable for standard atmospheric
+      conditions at sea level.
 
-        [1] Reda I and Andreas A, 2003. Solar Position Algorithm for Solar
-        Radiation Applications. 55 pp.; NREL Report No. TP-560-34302, Revised
-        January 2008 [pdf](http://www.nrel.gov/docs/fy08osti/34302.pdf)
-        [url](https://midcdmz.nrel.gov/spa/).
+    Examples
+    --------
+    Calculate solar position for three cities over one day:
 
-        [2] Blanco-Muriel, M. et al. 2001. Computing the solar vector. Solar
-        Energy, Vol. 70, pp. 431-441
-        doi: [10.1016/S0038-092X(00)00156-0](https://doi.org/10.1016/S0038-092X(00)00156-0).
+    >>> import pandas as pd
+    >>> import sunwhere
+    >>> 
+    >>> # Define locations: Madrid, New York, Tokyo
+    >>> cities = ['Madrid', 'New York', 'Tokyo']
+    >>> lats = [40.4168, 40.7128, 35.6762]
+    >>> lons = [-3.7038, -74.0060, 139.6503]
+    >>> 
+    >>> # Create hourly time series for 2024-06-21 (summer solstice)
+    >>> times = pd.date_range('2024-06-21', periods=24, freq='h', tz='UTC')
+    >>> 
+    >>> # Compute solar position with site names
+    >>> result = sunwhere.sites(times, lats, lons, site_names=cities)
+    >>> 
+    >>> # Access solar zenith angle with labeled coordinates
+    >>> print(result.sza)  # shape: (24, 3) with site names as coordinate
+    >>> 
+    >>> # Select data for a specific city using name
+    >>> madrid_sza = result.sza.sel(site='Madrid')
+    >>> 
+    >>> # Find solar noon (minimum zenith angle) for Madrid
+    >>> solar_noon_idx = result.sza.sel(site='Madrid').argmin()
+    >>> print(f"Solar noon in Madrid: {times[solar_noon_idx]}")
 
-        [3] Blanco, M. et al. 2020. Updating the PSA sun position algorithm.
-        Solar Energy, Vol. 212, pp. 339-341
-        doi: [10.1016/j.solener.2020.10.084](https://doi.org/10.1016/j.solener.2020.10.084).
+    Single location example:
 
-        [4] van der Sluys M and van Kan P, 2022. SolTrack. A free, fast and accurate routine
-        to compute the position of the Sun
-        doi: [10.48550/arXiv.2209.01557](https://doi.org/10.48550/arXiv.2209.01557)
-        [code](https://github.com/MarcvdSluys/SolTrack-Python)
+    >>> # Single location (scalar coordinates)
+    >>> times = pd.date_range('2024-01-01', periods=365, freq='D', tz='UTC')
+    >>> result = sunwhere.sites(times, 40.0, -3.0, algorithm='nrel')
+    >>> 
+    >>> # Get solar azimuth angle
+    >>> azimuth = result.saa  # shape: (365, 1)
 
-        [5] Iqbal, M., An introduction to solar radiation. Academic Press. 1983
-        [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
+    References
+    ----------
+    1. Blanco-Muriel, M. et al., 2001. Computing the solar vector.
+       Solar Energy, 70(5), 431-441.
+       https://doi.org/10.1016/S0038-092X(00)00156-0
+
+    2. Blanco, M. et al., 2020. Updating the PSA sun position algorithm.
+       Solar Energy, 212, 339-341.
+       https://doi.org/10.1016/j.solener.2020.10.084
+
+    3. Reda, I. and Andreas, A., 2003. Solar Position Algorithm for Solar
+       Radiation Applications. NREL Report No. TP-560-34302.
+       https://www.nrel.gov/docs/fy08osti/34302.pdf
+
+    4. Iqbal, M., 1983. An introduction to solar radiation. Academic Press.
+
+    See Also
+    --------
+    regular_grid : Solar position over a regular lat-lon grid
+    transect : Solar position along a moving path
     """
     # I use ndmin=1 to allow scalar inputs
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
     times_utc = np.array(
         pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime
-        ndmin=1, dtype='datetime64[s]')
+        ndmin=1, dtype='datetime64[ns]')
     sites_lats = np.array(latitude, ndmin=1, dtype=np.float64)
     sites_lons = np.array(longitude, ndmin=1, dtype=np.float64)
 
@@ -93,6 +158,17 @@ def sites(times, latitude, longitude, algorithm='psa',
             'shape mismatch: expected equal shape for latitude and '
             f'longitude, but got {sites_lats.shape} for latitude and '
             f'{sites_lons.shape} for longitude')
+
+    # Validate site_names if provided
+    if site_names is not None:
+        site_names = np.array(site_names, ndmin=1, dtype=str)
+        if site_names.ndim != 1:
+            raise ValueError(
+                f'expected 1-dim array for site_names, but got {site_names.ndim}-dim array')
+        if site_names.shape[0] != sites_lats.shape[0]:
+            raise ValueError(
+                f'shape mismatch: site_names must have the same length as latitude and longitude, '
+                f'but got {site_names.shape[0]} for site_names and {sites_lats.shape[0]} for latitude/longitude')
 
     # NOTE: ndim=1: two dimensional space: (n_times, n_locations)
     # NOTE: times_utc is a naive datetime64[s]
@@ -108,6 +184,7 @@ def sites(times, latitude, longitude, algorithm='psa',
         engine=engine,
         refraction=refraction,
         usecase='sites',
+        site_names=site_names,
         ecf=solpos.get('ecf'),
         eot=solpos.get('eot'),
         declination=solpos.get('declination'),
@@ -116,61 +193,125 @@ def sites(times, latitude, longitude, algorithm='psa',
     )
 
 
-def regular_grid(times, latitude, longitude, algorithm='psa',
-                 refraction=True, engine='numexpr'):
-    """Solar position across a lon-lat regular grid throughout a common time grid.
+def regular_grid(
+    times: np.ndarray[tuple[int], np.datetime64] | pd.DatetimeIndex,
+    latitude: np.ndarray[tuple[int]] | Sequence[float] | float,
+    longitude: np.ndarray[tuple[int]] | Sequence[float] | float,
+    algorithm: Literal['psa', 'nrel', 'iqbal'] = 'psa',
+    refraction: bool = True,
+    engine: Literal['numexpr', 'numpy'] = 'numexpr',
+) -> Sunpos:
+    """
+    Compute solar position over a regular latitude-longitude grid.
 
-    Args:
-        times (1-dim array of datetime64, or similar, of size K): Time
-            instants at which solar position is evaluated. Similar types
-            are, for instance, datetime and pandas DatetimeIndex.
-        latitude (scalar or 1-dim array like of floats of size J): Latitudes
-            (degrees) where solar position is evaluated. It must be in the
-            range [-90, 90].
-        longitude (scalar or 1-dim array like of floats of size I): Longitudes
-            (degrees) where solar position is evaluated. It must be in the
-            range [-180, 180].
-        algorithm ({_nrel_, _psa_, _soltrack_, _iqbal_}): Solar position algorithm.
-            _nrel_ is for NREL's SPA [1], valid for the years -2000 to 6000.
-            Its expected uncertainty is +/- 0.0003 degrees. _psa_ is for the
-            Plataforma Solar de Almería's (PSA) algorithm [2] with updated
-            coefficients for the period 2020-2050 [3]. Its expected average
-            error is 0.002 degrees, but it is faster than _nrel_. _soltrack_
-            [4] is similar in performance to _psa_. _iqbal_ is for the algorithm
-            described in Iqbal, M. [5], which has lower accuracy than the former
-            algorithms.
-        refraction (bool): Whether atmospheric refraction must be considered.
-        engine ({_numpy_, _numexpr_}): Baseline code implementation to perform
-            the solar position calculations. _numexpr_ is expected to be faster
-            than numpy, especially for big spatial and/or temporal grids.
+    This function calculates solar position for a regular 2D grid of latitudes
+    and longitudes throughout a common time series. The output has shape
+    (time, latitude, longitude), suitable for gridded climate data or maps.
 
-    Returns:
-        A Sunpos instance in which the shape of the variables that are not
-        location-dependent (e.g., declination) is (K,) and that of the
-        location-dependent variables (e.g., zenith) is (K, J, I).
+    Parameters
+    ----------
+    times : array-like of datetime-like, shape (K,)
+        Time instants at which solar position is evaluated. Can be datetime.datetime,
+        pandas.DatetimeIndex, numpy.datetime64, or any type accepted by
+        pandas.to_datetime(). Timezone-naive inputs are assumed to be UTC.
+    latitude : float or array-like of float, shape (J,)
+        1-D array of latitudes in degrees defining the grid rows.
+        Valid range: [-90, 90]. Can be a scalar for a single latitude.
+    longitude : float or array-like of float, shape (I,)
+        1-D array of longitudes in degrees defining the grid columns.
+        Valid range: [-180, 180). Can be a scalar for a single longitude.
+    algorithm : {'psa', 'nrel', 'iqbal'}, optional
+        Solar position algorithm to use:
+        
+        - 'psa': Plataforma Solar de Almería algorithm [2] with updated
+          coefficients [3]. Fast and accurate (avg error ~0.002°). Default.
+        - 'nrel': NREL's SPA algorithm [1]. Most accurate (±0.0003°) but slower.
+          Valid for years -2000 to 6000.
+        - 'iqbal': Iqbal's algorithm [4]. Lower accuracy, mainly for educational use.
+    refraction : bool, optional
+        If True (default), applies atmospheric refraction correction to zenith angle.
+        Typically adds ~0.5° correction near the horizon.
+    engine : {'numexpr', 'numpy'}, optional
+        Computation engine. 'numexpr' (default) is significantly faster for large
+        grids (>1000 points), 'numpy' may be faster for small grids.
 
-    References:
+    Returns
+    -------
+    sunpos : Sunpos
+        Object containing solar position data as xarray DataArrays with dimensions:
+        
+        - Time-dependent only (K,): dec, eot, ecf
+        - Time and space dependent (K, J, I): sza, saa, elevation, azimuth, zenith, cosz
 
-        [1] Reda I and Andreas A, 2003. Solar Position Algorithm for Solar
-        Radiation Applications. 55 pp.; NREL Report No. TP-560-34302, Revised
-        January 2008 [pdf](http://www.nrel.gov/docs/fy08osti/34302.pdf)
-        [url](https://midcdmz.nrel.gov/spa/).
+    Notes
+    -----
+    - This function is optimized for regular grids where latitudes and longitudes
+      form a rectangular mesh.
+    - For irregular or scattered points, use `sites()` instead.
+    - The grid is created using NumPy broadcasting: all combinations of lat×lon
+      are computed for each time instant.
+    - Memory usage scales as K × J × I × 8 bytes per output variable.
 
-        [2] Blanco-Muriel, M. et al. 2001. Computing the solar vector. Solar
-        Energy, Vol. 70, pp. 431-441
-        doi: [10.1016/S0038-092X(00)00156-0](https://doi.org/10.1016/S0038-092X(00)00156-0).
+    Examples
+    --------
+    Create a global grid and compute solar zenith angle:
 
-        [3] Blanco, M. et al. 2020. Updating the PSA sun position algorithm.
-        Solar Energy, Vol. 212, pp. 339-341
-        doi: [10.1016/j.solener.2020.10.084](https://doi.org/10.1016/j.solener.2020.10.084).
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import sunwhere
+    >>> 
+    >>> # Define a 5° resolution global grid
+    >>> lats = np.arange(-90, 91, 5.0)
+    >>> lons = np.arange(-180, 180, 5.0)
+    >>> 
+    >>> # One day at noon UTC
+    >>> times = pd.date_range('2024-06-21 12:00', periods=1, freq='h', tz='UTC')
+    >>> 
+    >>> # Compute solar position
+    >>> result = sunwhere.regular_grid(times, lats, lons)
+    >>> 
+    >>> # Solar zenith angle has shape (1, 37, 72)
+    >>> print(result.sza.shape)
+    (1, 37, 72)
+    >>> 
+    >>> # Create a map of solar zenith angle
+    >>> import matplotlib.pyplot as plt
+    >>> result.sza[0].plot(x='lon', y='lat')
+    >>> plt.title('Solar Zenith Angle at Summer Solstice Noon UTC')
+    >>> plt.show()
 
-        [4] van der Sluys M and van Kan P, 2022. SolTrack. A free, fast and accurate routine
-        to compute the position of the Sun
-        doi: [10.48550/arXiv.2209.01557](https://doi.org/10.48550/arXiv.2209.01557)
-        [code](https://github.com/MarcvdSluys/SolTrack-Python)
+    High-resolution regional grid:
 
-        [5] Iqbal, M., An introduction to solar radiation. Academic Press. 1983
-        [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
+    >>> # European domain
+    >>> lats = np.linspace(35, 70, 141)  # 0.25° resolution
+    >>> lons = np.linspace(-10, 40, 201)
+    >>> 
+    >>> # Full year, daily resolution
+    >>> times = pd.date_range('2024-01-01', '2024-12-31', freq='D', tz='UTC')
+    >>> 
+    >>> # Use NREL algorithm for highest accuracy
+    >>> result = sunwhere.regular_grid(times, lats, lons, algorithm='nrel')
+    >>> 
+    >>> # Compute average zenith angle over the year
+    >>> annual_mean_sza = result.sza.mean(dim='time')
+
+    References
+    ----------
+    1. Reda, I. and Andreas, A., 2003. Solar Position Algorithm for Solar
+       Radiation Applications. NREL Report No. TP-560-34302.
+       https://www.nrel.gov/docs/fy08osti/34302.pdf
+    2. Blanco-Muriel, M. et al., 2001. Computing the solar vector.
+       Solar Energy, 70(5), 431-441.
+       https://doi.org/10.1016/S0038-092X(00)00156-0
+    3. Blanco, M. et al., 2020. Updating the PSA sun position algorithm.
+       Solar Energy, 212, 339-341.
+       https://doi.org/10.1016/j.solener.2020.10.084
+    4. Iqbal, M., 1983. An introduction to solar radiation. Academic Press.
+
+    See Also
+    --------
+    sites : Solar position at multiple fixed locations
+    transect : Solar position along a moving path
     """
     # I use ndmin=1 to allow scalar input times
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive
@@ -204,61 +345,134 @@ def regular_grid(times, latitude, longitude, algorithm='psa',
     )
 
 
-def transect(times, latitude, longitude, algorithm='psa',
-             refraction=True, engine='numexpr'):
-    """Solar position across a transect.
+def transect(
+    times: np.ndarray[tuple[int], np.datetime64] | pd.DatetimeIndex,
+    latitude: np.ndarray[tuple[int]] | Sequence[float] | float,
+    longitude: np.ndarray[tuple[int]] | Sequence[float] | float,
+    algorithm: Literal['psa', 'nrel', 'iqbal'] = 'psa',
+    refraction: bool = True,
+    engine: Literal['numexpr', 'numpy'] = 'numexpr',
+) -> Sunpos:
+    """
+    Compute solar position along a moving path (transect).
 
-    In a transect, the observer's position changes throughout time.
+    This function calculates solar position for a trajectory where each time
+    instant corresponds to a different geographic location. The output has shape
+    (time,), suitable for moving observers like satellites, aircraft, or ships.
 
-    Args:
-        times (1-dim array of datetime64, or similar, of size K): Time
-            instants at which solar position is evaluated. Similar types
-            are, for instance, datetime and pandas DatetimeIndex.
-        latitude (scalar or 1-dim array like of floats of size K): Latitudes
-            (degrees) where solar position is evaluated. It must be in the
-            range [-90, 90].
-        longitude (scalar or 1-dim array like of floats of size K): Longitudes
-            (degrees) where solar position is evaluated. It must be in the
-            range [-180, 180].
-        algorithm ({_nrel_, _psa_, _soltrack_, _iqbal_}): Solar position algorithm.
-            _nrel_ is for NREL's SPA [1], valid for the years -2000 to 6000.
-            Its expected uncertainty is +/- 0.0003 degrees. _psa_ is for the
-            Plataforma Solar de Almería's (PSA) algorithm [2] with updated
-            coefficients for the period 2020-2050 [3]. Its expected average
-            error is 0.002 degrees, but it is faster than _nrel_. _soltrack_
-            [4] is similar in performance to _psa_. _iqbal_ is for the algorithm
-            described in Iqbal, M. [5], which has lower accuracy than the former
-            algorithms.
-        refraction (bool): Whether atmospheric refraction must be considered.
-        engine ({_numpy_, _numexpr_}): Baseline code implementation to perform
-            the solar position calculations. _numexpr_ is expected to be faster
-            than numpy, especially for big spatial and/or temporal grids.
+    Parameters
+    ----------
+    times : array-like of datetime-like, shape (K,)
+        Time instants at which solar position is evaluated. Can be datetime.datetime,
+        pandas.DatetimeIndex, numpy.datetime64, or any type accepted by
+        pandas.to_datetime(). Timezone-naive inputs are assumed to be UTC.
+    latitude : float or array-like of float, shape (K,)
+        Latitude in degrees for each time instant. Valid range: [-90, 90].
+        If scalar, the same latitude is used for all times (meridional transect).
+    longitude : float or array-like of float, shape (K,)
+        Longitude in degrees for each time instant. Valid range: [-180, 180).
+        If scalar, the same longitude is used for all times (zonal transect).
+    algorithm : {'psa', 'nrel', 'iqbal'}, optional
+        Solar position algorithm to use:
+        - 'psa': Plataforma Solar de Almería algorithm [2] with updated
+          coefficients [3]. Fast and accurate (avg error ~0.002°). Default.
+        - 'nrel': NREL's SPA algorithm [1]. Most accurate (±0.0003°) but slower.
+          Valid for years -2000 to 6000.
+        - 'iqbal': Iqbal's algorithm [4]. Lower accuracy, mainly for educational use.
+    refraction : bool, optional
+        If True (default), applies atmospheric refraction correction to zenith angle.
+        Typically adds ~0.5° correction near the horizon.
+    engine : {'numexpr', 'numpy'}, optional
+        Computation engine. 'numexpr' (default) is typically faster for long
+        transects (>100 points), 'numpy' may be faster for short transects.
 
-    Returns:
-        A Sunpos instance in which the shape of all variables is (K,).
+    Returns
+    -------
+    sunpos : Sunpos
+        Object containing solar position data as xarray DataArrays with dimension
+        (K,) for all variables: dec, eot, ecf, sza, saa, elevation, azimuth, 
+        zenith, cosz.
 
-    References:
+    Notes
+    -----
+    - This function is designed for scenarios where position changes with time,
+      such as satellite ground tracks, flight paths, or ship routes.
+    - If latitude and longitude are both scalars, all times share the same location
+      (equivalent to a single site with varying times).
+    - For multiple fixed locations, use `sites()` instead for better performance.
+    - The time array and position arrays must have the same length if both are arrays.
 
-        [1] Reda I and Andreas A, 2003. Solar Position Algorithm for Solar
-        Radiation Applications. 55 pp.; NREL Report No. TP-560-34302, Revised
-        January 2008 [pdf](http://www.nrel.gov/docs/fy08osti/34302.pdf)
-        [url](https://midcdmz.nrel.gov/spa/).
+    Examples
+    --------
+    Satellite ground track over one orbit:
 
-        [2] Blanco-Muriel, M. et al. 2001. Computing the solar vector. Solar
-        Energy, Vol. 70, pp. 431-441
-        doi: [10.1016/S0038-092X(00)00156-0](https://doi.org/10.1016/S0038-092X(00)00156-0).
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import sunwhere
+    >>> 
+    >>> # ISS-like orbit: ~90 minute period
+    >>> times = pd.date_range('2024-01-15 00:00', periods=100, freq='54s', tz='UTC')
+    >>> 
+    >>> # Simplified sinusoidal ground track (not physically accurate)
+    >>> lats = 51.6 * np.sin(2 * np.pi * np.arange(100) / 100)
+    >>> lons = np.linspace(-180, 180, 100, endpoint=False)
+    >>> 
+    >>> # Compute solar position along the track
+    >>> result = sunwhere.transect(times, lats, lons)
+    >>> 
+    >>> # Check when satellite is in sunlight (elevation > 0)
+    >>> in_sunlight = result.elevation > 0
+    >>> print(f"Sunlit for {in_sunlight.sum().item()} of {len(times)} points")
 
-        [3] Blanco, M. et al. 2020. Updating the PSA sun position algorithm.
-        Solar Energy, Vol. 212, pp. 339-341
-        doi: [10.1016/j.solener.2020.10.084](https://doi.org/10.1016/j.solener.2020.10.084).
+    Aircraft flight path from New York to Tokyo:
 
-        [4] van der Sluys M and van Kan P, 2022. SolTrack. A free, fast and accurate routine
-        to compute the position of the Sun
-        doi: [10.48550/arXiv.2209.01557](https://doi.org/10.48550/arXiv.2209.01557)
-        [code](https://github.com/MarcvdSluys/SolTrack-Python)
+    >>> # Great circle approximation (10-hour flight)
+    >>> times = pd.date_range('2024-03-20 10:00', periods=121, freq='5min', tz='UTC')
+    >>> 
+    >>> # Linear interpolation (simplified - not actual great circle)
+    >>> lats = np.linspace(40.7, 35.7, 121)  # NYC to Tokyo
+    >>> lons = np.linspace(-74.0, 139.7, 121)
+    >>> 
+    >>> # Compute solar position
+    >>> result = sunwhere.transect(times, lats, lons, algorithm='nrel')
+    >>> 
+    >>> # Find solar elevation throughout flight
+    >>> import matplotlib.pyplot as plt
+    >>> result.elevation.plot()
+    >>> plt.axhline(0, color='k', linestyle='--', label='Horizon')
+    >>> plt.ylabel('Solar Elevation (degrees)')
+    >>> plt.title('Sun Position During NYC-Tokyo Flight')
+    >>> plt.legend()
+    >>> plt.show()
 
-        [5] Iqbal, M., An introduction to solar radiation. Academic Press. 1983
-        [url](https://www.sciencedirect.com/book/9780123737502/an-introduction-to-solar-radiation)
+    Meridional transect at fixed longitude:
+
+    >>> # Moving north along Prime Meridian
+    >>> times = pd.date_range('2024-06-21 12:00', periods=181, freq='h', tz='UTC')
+    >>> lats = np.linspace(-90, 90, 181)  # South Pole to North Pole
+    >>> lon = 0.0  # Prime Meridian (scalar)
+    >>> 
+    >>> result = sunwhere.transect(times, lats, lon)
+    >>> # Solar zenith angle variation from pole to pole
+    >>> result.sza.plot()
+
+    References
+    ----------
+    1. Reda, I. and Andreas, A., 2003. Solar Position Algorithm for Solar
+       Radiation Applications. NREL Report No. TP-560-34302.
+       https://www.nrel.gov/docs/fy08osti/34302.pdf
+    2. Blanco-Muriel, M. et al., 2001. Computing the solar vector.
+       Solar Energy, 70(5), 431-441.
+       https://doi.org/10.1016/S0038-092X(00)00156-0
+    3. Blanco, M. et al., 2020. Updating the PSA sun position algorithm.
+       Solar Energy, 212, 339-341.
+       https://doi.org/10.1016/j.solener.2020.10.084
+    4. Iqbal, M., 1983. An introduction to solar radiation. Academic Press.
+
+    See Also
+    --------
+    sites : Solar position at multiple fixed locations
+    regular_grid : Solar position over a latitude-longitude grid
     """
     # I use ndmin=1 to allow scalar inputs
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive
