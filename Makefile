@@ -22,6 +22,23 @@ clean:
 tests:
 	@uv run coverage run -m pytest -v --junit-xml=junit.xml tests/
 	@uv run coverage xml
-	@uv run genbadge tests -i junit.xml -o assets/tests-badge.svg
-	@uv run genbadge coverage -i coverage.xml -o assets/coverage-badge.svg
+	@uv run genbadge tests -i junit.xml -o docs/images/tests-badge.svg
+	@uv run genbadge coverage -i coverage.xml -o docs/images/coverage-badge.svg
 	@rm -f junit.xml coverage.xml
+
+.PHONY: docs
+docs:
+	@echo "Building documentation with Zensical..."
+	@uv run zensical build --clean
+	@echo "Documentation built successfully in site/ directory"
+	@attr -s com.dropbox.ignored -V 1 site  # instruct dropbox to ignore the .venv folder
+
+.PHONY: docs-serve
+docs-serve:
+	@echo "Serving documentation locally..."
+	@uv run zensical serve --open
+
+.PHONY: docs-clean
+docs-clean:
+	@echo "Cleaning documentation build..."
+	@rm -rf site/

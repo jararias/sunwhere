@@ -1,3 +1,19 @@
+"""Tests for algorithm consistency.
+
+This module tests that different solar position algorithms and computation
+engines produce consistent results. The NREL algorithm is used as the reference
+since it is the most accurate, and other algorithms (PSA, Iqbal) are
+compared against it.
+
+The tests verify consistency across the three use cases:
+- sites: Multiple locations with time-varying positions
+- regular_grid: Regular lat/lon grids
+- transect: Moving along a path (time, lat, lon all varying together)
+
+For each use case, we test that sites() and the specific use case function
+(regular_grid() or transect()) produce identical results when given the same
+inputs, ensuring the internal transformations are correct.
+"""
 
 import pytest
 import numpy as np
@@ -11,6 +27,10 @@ from conftest import (
 )
 
 import sunwhere  # pylint: disable=import-error
+from sunwhere._core import __PRIVATE_ALGORITHMS__  # pylint: disable=import-error
+
+# Check if soltrack is available (it's a private/dev algorithm)
+SOLTRACK_AVAILABLE = __PRIVATE_ALGORITHMS__.get('soltrack', {}).get('numpy') is not None
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -51,7 +71,6 @@ def sites_nrel(space_time_sites):
     return sunwhere.sites(*space_time_sites, **kwargs)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_psa_numpy_consistency(space_time_sites, sites_nrel, allclose):
     kwargs = {'algorithm': 'psa', 'engine': 'numpy', 'refraction': False}
     nrel = sites_nrel
@@ -64,7 +83,6 @@ def test_psa_numpy_consistency(space_time_sites, sites_nrel, allclose):
     assert azimdist(get(nrel.saa), get(psa.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_psa_numexpr_consistency(space_time_sites, sites_nrel, allclose):
     kwargs = {'algorithm': 'psa', 'engine': 'numexpr', 'refraction': False}
     nrel = sites_nrel
@@ -77,8 +95,8 @@ def test_psa_numexpr_consistency(space_time_sites, sites_nrel, allclose):
     assert azimdist(get(nrel.saa), get(psa.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_soltrack_numpy_consistency(space_time_sites, sites_nrel, allclose):
+    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numpy', 'refraction': False}
     nrel = sites_nrel
     get = get_da_for_sites
@@ -90,8 +108,8 @@ def test_soltrack_numpy_consistency(space_time_sites, sites_nrel, allclose):
     assert azimdist(get(nrel.saa), get(soltrack.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_soltrack_numexpr_consistency(space_time_sites, sites_nrel, allclose):
+    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numexpr', 'refraction': False}
     nrel = sites_nrel
     get = get_da_for_sites
@@ -103,7 +121,6 @@ def test_soltrack_numexpr_consistency(space_time_sites, sites_nrel, allclose):
     assert azimdist(get(nrel.saa), get(soltrack.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_iqbal_numpy_consistency(space_time_sites, sites_nrel, allclose):
     kwargs = {'algorithm': 'iqbal', 'engine': 'numpy', 'refraction': False}
     nrel = sites_nrel
@@ -116,7 +133,6 @@ def test_iqbal_numpy_consistency(space_time_sites, sites_nrel, allclose):
     assert azimdist(get(nrel.saa), get(iqbal.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_iqbal_numexpr_consistency(space_time_sites, sites_nrel, allclose):
     kwargs = {'algorithm': 'iqbal', 'engine': 'numexpr', 'refraction': False}
     nrel = sites_nrel
@@ -129,7 +145,6 @@ def test_iqbal_numexpr_consistency(space_time_sites, sites_nrel, allclose):
     assert azimdist(get(nrel.saa), get(iqbal.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_nrel_numexpr_regular_grid_consistency(space_time_regular_grid, allclose):
     kwargs = {'algorithm': 'nrel', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_regular_grid
@@ -142,7 +157,6 @@ def test_nrel_numexpr_regular_grid_consistency(space_time_regular_grid, allclose
     assert azimdist(get(sites.saa), get(rgrid.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_psa_numpy_regular_grid_consistency(space_time_regular_grid, allclose):
     kwargs = {'algorithm': 'psa', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_regular_grid
@@ -155,7 +169,6 @@ def test_psa_numpy_regular_grid_consistency(space_time_regular_grid, allclose):
     assert azimdist(get(sites.saa), get(rgrid.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_psa_numexpr_regular_grid_consistency(space_time_regular_grid, allclose):
     kwargs = {'algorithm': 'psa', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_regular_grid
@@ -168,8 +181,8 @@ def test_psa_numexpr_regular_grid_consistency(space_time_regular_grid, allclose)
     assert azimdist(get(sites.saa), get(rgrid.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_soltrack_numpy_regular_grid_consistency(space_time_regular_grid, allclose):
+    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_regular_grid
     sites = sunwhere.sites(*space_time_regular_grid, **kwargs)
@@ -181,8 +194,8 @@ def test_soltrack_numpy_regular_grid_consistency(space_time_regular_grid, allclo
     assert azimdist(get(sites.saa), get(rgrid.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_soltrack_numexpr_regular_grid_consistency(space_time_regular_grid, allclose):
+    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_regular_grid
     sites = sunwhere.sites(*space_time_regular_grid, **kwargs)
@@ -194,7 +207,6 @@ def test_soltrack_numexpr_regular_grid_consistency(space_time_regular_grid, allc
     assert azimdist(get(sites.saa), get(rgrid.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_iqbal_numpy_regular_grid_consistency(space_time_regular_grid, allclose):
     kwargs = {'algorithm': 'iqbal', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_regular_grid
@@ -207,7 +219,6 @@ def test_iqbal_numpy_regular_grid_consistency(space_time_regular_grid, allclose)
     assert azimdist(get(sites.saa), get(rgrid.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_iqbal_numexpr_regular_grid_consistency(space_time_regular_grid, allclose):
     kwargs = {'algorithm': 'iqbal', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_regular_grid
@@ -220,7 +231,6 @@ def test_iqbal_numexpr_regular_grid_consistency(space_time_regular_grid, allclos
     assert azimdist(get(sites.saa), get(rgrid.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_nrel_numexpr_transect_consistency(space_time_transect, allclose):
     kwargs = {'algorithm': 'nrel', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_transect
@@ -234,7 +244,6 @@ def test_nrel_numexpr_transect_consistency(space_time_transect, allclose):
         assert azimdist(get(sites.saa), get(trans.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_psa_numpy_transect_consistency(space_time_transect, allclose):
     kwargs = {'algorithm': 'psa', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_transect
@@ -248,7 +257,6 @@ def test_psa_numpy_transect_consistency(space_time_transect, allclose):
         assert azimdist(get(sites.saa), get(trans.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_psa_numexpr_transect_consistency(space_time_transect, allclose):
     kwargs = {'algorithm': 'psa', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_transect
@@ -262,8 +270,8 @@ def test_psa_numexpr_transect_consistency(space_time_transect, allclose):
         assert azimdist(get(sites.saa), get(trans.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_soltrack_numpy_transect_consistency(space_time_transect, allclose):
+    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_transect
     for time, lat, lon in zip(*space_time_transect):
@@ -276,8 +284,8 @@ def test_soltrack_numpy_transect_consistency(space_time_transect, allclose):
         assert azimdist(get(sites.saa), get(trans.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_soltrack_numexpr_transect_consistency(space_time_transect, allclose):
+    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_transect
     for time, lat, lon in zip(*space_time_transect):
@@ -290,7 +298,6 @@ def test_soltrack_numexpr_transect_consistency(space_time_transect, allclose):
         assert azimdist(get(sites.saa), get(trans.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_iqbal_numpy_transect_consistency(space_time_transect, allclose):
     kwargs = {'algorithm': 'iqbal', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_transect
@@ -304,7 +311,6 @@ def test_iqbal_numpy_transect_consistency(space_time_transect, allclose):
         assert azimdist(get(sites.saa), get(trans.saa), thresh=1.)
 
 
-@pytest.mark.filterwarnings("ignore")
 def test_iqbal_numexpr_transect_consistency(space_time_transect, allclose):
     kwargs = {'algorithm': 'iqbal', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_transect

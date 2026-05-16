@@ -18,14 +18,10 @@ from loguru import logger
 from .utils import safe_import, validate
 
 
-__ALGORITHMS__ = {
+__PUBLIC_ALGORITHMS__ = {
     'psa': {
         'numpy': safe_import('.py_psa', package='sunwhere.libspa'),
         'numexpr': safe_import('.ne_psa', package='sunwhere.libspa')
-    },
-    'soltrack': {
-        'numpy': safe_import('.py_soltrack', package='sunwhere.libspa'),
-        'numexpr': safe_import('.ne_soltrack', package='sunwhere.libspa')
     },
     'iqbal': {
         'numpy': safe_import('.py_iqbal', package='sunwhere.libspa'),
@@ -35,6 +31,16 @@ __ALGORITHMS__ = {
         'numexpr': safe_import('.ne_nrel', package='sunwhere.libspa')
     }
 }
+
+__PRIVATE_ALGORITHMS__ = {
+    'soltrack': {
+        'numpy': safe_import('.py_soltrack', package='sunwhere.libspa'),
+        'numexpr': safe_import('.ne_soltrack', package='sunwhere.libspa')
+    }
+}
+
+# Combined algorithms for internal use
+__ALGORITHMS__ = {**__PUBLIC_ALGORITHMS__, **__PRIVATE_ALGORITHMS__}
 
 logger.disable(__name__)
 
@@ -83,9 +89,8 @@ def evaluate(times, latitude, longitude, algorithm='psa', ndim=1,
             -2000 to 6000. Its expected uncertainty is +/- 0.0003 degrees.
         =psa: Plataforma Solar de Almería's (PSA) algorithm [2] with updated coefficients
             for the period 2020-2050 [3] that reduce the average error to 0.0024 degrees.
-        =iqbal: algorithm described in Iqbal, M. [^4]. It is less accurate than
+        =iqbal: algorithm described in Iqbal, M. [4]. It is less accurate than
             `psa`, especially for solar azimuth angle, and only slightly faster.
-        =soltrack: similar in performance to psa [5]
     refraction: bool
         Atmospheric refraction correction.
     engine: string, {`numpy`, `numexpr`}
@@ -105,14 +110,12 @@ def evaluate(times, latitude, longitude, algorithm='psa', ndim=1,
     .. [3]: Blanco et al., 2020. Updating the PSA sun position algorithm. Solar Energy,
             212, 339-341. doi: 10.1016/j.solener.2020.10.084.
     .. [4]: Iqbal, M. An introduction to solar radiation. Academic Press, 1983.
-    .. [5]: van der Sluys M and van Kan P, 2022. SolTrack: a free, fast and accurate routine
-            to compute the position of the Sun doi: 10.48550/arXiv.2209.01557
-            https://github.com/MarcvdSluys/SolTrack-Python
     """
 
     if algorithm not in __ALGORITHMS__:
+        valid_algs = ', '.join(__PUBLIC_ALGORITHMS__.keys())
         raise ValueError(f'missing algorithm `{algorithm}`. Valid algorithms '
-                         f'are: {", ".join(__ALGORITHMS__.keys())}')
+                         f'are: {valid_algs}')
 
     if engine not in __ALGORITHMS__.get(algorithm):
         raise ValueError(f'missing engine `{engine}` for algorithm '
@@ -155,7 +158,7 @@ def evaluate(times, latitude, longitude, algorithm='psa', ndim=1,
 
     # ... and call it
     namespace = spa_func.__module__ + '.' + spa_func.__name__
-    logger.debug(f'running simulation with funtion {namespace}')
+    logger.debug(f'running simulation with function {namespace}')
     result = spa_func(times_nonat, lons_nonat, lats_nonat, *spa_args)
 
     # fill with NaN where times is NaT...

@@ -68,7 +68,7 @@ def sunwhere_ephemeris(times, lat, lon, methods=None, **kwargs):
 
         def get_variable(obj, name):
             df = getattr(obj, name).to_dataframe()
-            return df.droplevel('location') if 'location' in df.index.names else df
+            return df.droplevel('site') if 'site' in df.index.names else df
 
         names = ['zenith', 'azimuth', 'ecf']
         sw = sunwhere.sites(times, lat, lon, **kwargs)

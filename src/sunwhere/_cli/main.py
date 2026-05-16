@@ -21,17 +21,25 @@ app = typer.Typer(
 
 def parse_latitude(lat_str):
     hemisphere = lat_str[-1].casefold()
-    assert hemisphere in ('n', 's')
+    if hemisphere not in ('n', 's'):
+        raise ValueError(
+            f'invalid hemisphere {hemisphere!r}, expected N or S')
     latitude = (-1, 1)[hemisphere == 'n'] * float(lat_str[:-1])
-    assert -90 <= latitude <= 90
+    if not (-90 <= latitude <= 90):
+        raise ValueError(
+            f'latitude {latitude} out of bounds, expected [-90, 90]')
     return latitude
 
 
 def parse_longitude(lon_str):
     hemisphere = lon_str[-1].casefold()
-    assert hemisphere in ('e', 'w')
+    if hemisphere not in ('e', 'w'):
+        raise ValueError(
+            f'invalid hemisphere {hemisphere!r}, expected E or W')
     longitude = (-1, 1)[hemisphere == 'e'] * float(lon_str[:-1])
-    assert -180 <= longitude < 180
+    if not (-180 <= longitude < 180):
+        raise ValueError(
+            f'longitude {longitude} out of bounds, expected [-180, 180)')
     return longitude
 
 
@@ -42,32 +50,38 @@ def at(
     site_lon: str = typer.Argument("3.822W", parser=parse_longitude, help="longitude [180W, 180E)"),
     algorithm: str = typer.Option('psa', "-a", "--algorithm", help="solar position algorithm"),
     refraction: bool = typer.Option(True, help="consider atmospheric refraction"),
-    timezone: str = typer.Option('UTC', "-z", "--timezone", help="time zone"),
 ):
 
     try:
-        calculate_position(time, site_lat, site_lon, algorithm, refraction, timezone)
+        calculate_position(time, site_lat, site_lon, algorithm, refraction)
+    except (ValueError, KeyError, AttributeError) as exc:
+        # ValueError: invalid algorithm, invalid parameters, out of bounds values
+        # KeyError: missing algorithm/engine combination
+        # AttributeError: invalid datetime format or attribute access
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
     except Exception as exc:
-        typer.echo(str(exc))
+        # Catch any unexpected errors and provide a helpful message
+        typer.echo(f"Unexpected error: {type(exc).__name__}: {exc}")
         raise typer.Exit(code=1)
 
 
-@app.command(help="performs a benchmark against other solar position packages [NOT AVAILABLE YET]")
-def benchmark(
-    year: int = typer.Argument(2024, help="benchmark year"),
-    site_lat: float = typer.Argument(MY_SITE_LAT, min=-90, max=90, help="latitude [-90, 90]"),
-    site_lon: float = typer.Argument(MY_SITE_LON, min=-180, max=180, help="longitude [-180, 180)"),
-    plot_accuracy: bool = typer.Option(False, help="show plot of solar position algorithms accuracy"),
-    plot_exec_time: bool = typer.Option(False, help="show plot of total execution times")
-):
-    # try:
-    #     run_benchmark(year, site_lat, site_lon, plot_accuracy, plot_exec_time)
-    #     if plot_accuracy or plot_exec_time:
-    #         pl.show()
-    # except Exception as exc:
-    #     typer.echo(str(exc))
-    #     raise typer.Exit(code=1)
-    pass
+# @app.command(help="[WORKING ON IT!] performs a benchmark against other solar position packages")
+# def benchmark(
+#     year: int = typer.Argument(2024, help="benchmark year"),
+#     site_lat: float = typer.Argument(MY_SITE_LAT, min=-90, max=90, help="latitude [-90, 90]"),
+#     site_lon: float = typer.Argument(MY_SITE_LON, min=-180, max=180, help="longitude [-180, 180)"),
+#     plot_accuracy: bool = typer.Option(False, help="show plot of solar position algorithms accuracy"),
+#     plot_exec_time: bool = typer.Option(False, help="show plot of total execution times")
+# ):
+#     # try:
+#     #     run_benchmark(year, site_lat, site_lon, plot_accuracy, plot_exec_time)
+#     #     if plot_accuracy or plot_exec_time:
+#     #         pl.show()
+#     # except Exception as exc:
+#     #     typer.echo(str(exc))
+#     #     raise typer.Exit(code=1)
+#     pass
 
 
 # @app.command(help="plots a solar chart [NOT AVAILABLE YET]")
