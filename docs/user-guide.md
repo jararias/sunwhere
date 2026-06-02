@@ -160,35 +160,7 @@ result.cosz        # Cosine of zenith angle
 result.dec         # Solar declination (degrees)
 result.eot         # Equation of time (minutes)
 result.ecf         # Earth-sun distance correction factor
-```
-
-### Practical Example: Finding Sunrise/Sunset
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-
-# One day in Madrid
-times = pd.date_range('2024-06-21', periods=24*60, freq='min', tz='UTC')
-result = sunwhere.sites(times, 40.4, -3.7)
-
-# Find when sun is above horizon (elevation > 0)
-daylight = result.elevation > 0
-
-# Find sunrise and sunset
-sunrise_idx = np.where(daylight[:-1] != daylight[1:])[0][0]
-sunset_idx = np.where(daylight[:-1] != daylight[1:])[0][1]
-
-print(f"Sunrise: {times[sunrise_idx]}")
-print(f"Sunset: {times[sunset_idx]}")
-
-# Plot solar elevation throughout the day
-result.elevation.plot()
-plt.axhline(0, color='k', linestyle='--', label='Horizon')
-plt.ylabel('Solar Elevation (°)')
-plt.title('Solar Elevation - Madrid - Summer Solstice')
-plt.legend()
-plt.show()
+# ... and more
 ```
 
 ## Use Case 2: Regular Grids
@@ -337,7 +309,7 @@ You can keep one coordinate constant:
 # Moving north along Prime Meridian
 times = pd.date_range('2024-06-21 12:00', periods=181, freq='h', tz='UTC')
 lats = np.linspace(-90, 90, 181)  # South Pole to North Pole
-lon = 0.0  # Prime Meridian (scalar)
+lons = np.full(len(lats), 0.0)  # Prime Meridian (scalar)
 
 result = sunwhere.transect(times, lats, lon)
 
@@ -366,56 +338,7 @@ voyage_lons = interp1d(np.linspace(0, len(times)-1, len(lons)), lons)(np.arange(
 result = sunwhere.transect(times, voyage_lats, voyage_lons)
 ```
 
-## Advanced Topics
-
-### Atmospheric Refraction
-
-By default, atmospheric refraction correction is enabled. You can disable it:
-
-```python
-# Without refraction correction
-result = sunwhere.sites(times, lat, lon, refraction=False)
-
-# Compare with and without refraction
-result_ref = sunwhere.sites(times, lat, lon, refraction=True)
-result_noref = sunwhere.sites(times, lat, lon, refraction=False)
-
-diff = result_ref.sza - result_noref.sza
-print(f"Max refraction effect: {diff.max().item():.3f}°")
-```
-
-Refraction correction is most significant near the horizon (~0.5° at horizon).
-
-### Working with xarray DataArrays
-
-Sunwhere returns xarray DataArrays, which provide powerful functionality:
-
-```python
-# Select specific times
-noon_values = result.sza.sel(time='2024-06-21 12:00')
-
-# Select time ranges
-summer = result.sza.sel(time=slice('2024-06-01', '2024-08-31'))
-
-# Statistical operations
-daily_max = result.sza.resample(time='D').max()
-monthly_mean = result.sza.resample(time='ME').mean()
-
-# Coordinate-based selection
-madrid_data = result.sza.sel(site='Madrid')  # By name (if site_names provided)
-madrid_data = result.sza.isel(site=0)  # By numeric index
-
-# Plotting
-result.sza.plot()  # Simple 1D/2D plots
-result.sza.plot.contourf()  # Contour plots for 2D data
-
-# Export to various formats
-result.sza.to_netcdf('solar_zenith.nc')  # NetCDF
-result.sza.to_pandas()  # Pandas DataFrame
-result.sza.values  # Raw NumPy array
-```
-
-### Performance Tips
+## Performance Tips
 
 1. **Use numexpr engine** for large datasets (default)
 2. **Batch calculations** when possible instead of looping
@@ -431,7 +354,7 @@ for lat, lon in zip(lats, lons):
     result = sunwhere.sites(times, lat, lon)  # Slow!
 ```
 
-### Handling Missing Data (NaT)
+## Handling Missing Data (NaT)
 
 Sunwhere handles NaT (Not-a-Time) values:
 

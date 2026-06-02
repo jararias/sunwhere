@@ -146,7 +146,7 @@ def sites(
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
     times_utc = np.array(
-        pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime
+        pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime, UTC
         ndmin=1, dtype='datetime64[ns]')
     sites_lats = np.array(latitude, ndmin=1, dtype=np.float64)
     sites_lons = np.array(longitude, ndmin=1, dtype=np.float64)
@@ -171,7 +171,7 @@ def sites(
                 f'but got {site_names.shape[0]} for site_names and {sites_lats.shape[0]} for latitude/longitude')
 
     # NOTE: ndim=1: two dimensional space: (n_times, n_locations)
-    # NOTE: times_utc is a naive datetime64[s]
+    # NOTE: times_utc is a naive datetime64[s], UTC
 
     solpos = evaluate(times_utc, sites_lats, sites_lons, algorithm,
                       ndim=1, refraction=refraction, engine=engine)
@@ -317,7 +317,7 @@ def regular_grid(
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
     times_utc = np.array(
-        pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime
+        pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime, UTC
         ndmin=1, dtype='datetime64[s]')
     grid_lats = np.array(latitude, ndmin=1, dtype=np.float64)
     grid_lons = np.array(longitude, ndmin=1, dtype=np.float64)
@@ -326,7 +326,7 @@ def regular_grid(
 
     # ndim=2: three dimensional space: (n_times, n_lats, n_lons)
 
-    solpos = evaluate(times, grid_lats, grid_lons, algorithm,
+    solpos = evaluate(times_utc, grid_lats, grid_lons, algorithm,
                       ndim=2, refraction=refraction, engine=engine)
 
     return Sunpos(
@@ -479,7 +479,7 @@ def transect(
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
     times_utc = np.array(
         pd.to_datetime(times, utc=True).tz_localize(None),
-        ndmin=1, dtype='datetime64[s]')
+        ndmin=1, dtype='datetime64[s]')  # naive datetime, UTC
     transect_lats = np.array(latitude, ndmin=1, dtype=np.float64)
     transect_lons = np.array(longitude, ndmin=1, dtype=np.float64)
 
@@ -493,7 +493,7 @@ def transect(
 
     # ndim=0: one dimensional space: (n_times,) == (n_lats,) == (n_lons,)
 
-    solpos = evaluate(times, transect_lats, transect_lons, algorithm,
+    solpos = evaluate(times_utc, transect_lats, transect_lons, algorithm,
                       ndim=0, refraction=refraction, engine=engine)
 
     return Sunpos(

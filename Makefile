@@ -1,4 +1,8 @@
 
+-include .env
+export UV_PUBLISH_TOKEN
+export UV_PUBLISH_TEST_TOKEN
+
 .PHONY: ipython3
 ipython3:
 	@uv run ipython --profile-dir=.ipython
@@ -42,3 +46,15 @@ docs-serve:
 docs-clean:
 	@echo "Cleaning documentation build..."
 	@rm -rf site/
+
+.PHONY: publish
+publish:
+	@test -n "$(UV_PUBLISH_TOKEN)" || (echo "Error: UV_PUBLISH_TOKEN no está definido (créalo en .env)"; exit 1)
+	@uv build
+	@uv publish
+
+.PHONY: publish-test
+publish-test:
+	@test -n "$(UV_PUBLISH_TEST_TOKEN)" || (echo "Error: UV_PUBLISH_TEST_TOKEN no está definido (créalo en .env)"; exit 1)
+	@uv build
+	@uv publish --publish-url https://test.pypi.org/legacy/ --token $(UV_PUBLISH_TEST_TOKEN)

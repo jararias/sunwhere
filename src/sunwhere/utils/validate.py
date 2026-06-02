@@ -25,13 +25,13 @@ def check_timelatlon(times, latitude, longitude, ndim, dtype=None, dt64=None):
     # validate times...
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
-    times = np.array(
-        pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime
+    times_utc = np.array(
+        pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime, UTC
         ndmin=1, dtype=dt64)
-    if times.ndim > 1:
+    if times_utc.ndim > 1:
         raise ValueError(
             'illegal shape: expected a 0-dim or 1-dim array of '
-            f'times but got a {times.ndim}-dim array')
+            f'times but got a {times_utc.ndim}-dim array')
 
     # validate longitudes...
     longitude = np.array(longitude, ndmin=1, dtype=dtype)
@@ -68,10 +68,10 @@ def check_timelatlon(times, latitude, longitude, ndim, dtype=None, dt64=None):
             'but got values beyond')
 
     # validate consistency against ndim...
-    if (ndim == 0) and not times.shape == longitude.shape == latitude.shape:
+    if (ndim == 0) and not times_utc.shape == longitude.shape == latitude.shape:
         raise ValueError(
             'shape mismatch: expected equal shape for times, latitude '
-            f'and longitude, but got {times.shape} for times, '
+            f'and longitude, but got {times_utc.shape} for times, '
             f'{longitude.shape} for longitude and {latitude.shape} for '
             f'latitude')
 
@@ -81,7 +81,7 @@ def check_timelatlon(times, latitude, longitude, ndim, dtype=None, dt64=None):
             f'longitude, but got {longitude.shape} for longitude '
             f'and {latitude.shape} for latitude')
 
-    return times, latitude, longitude
+    return times_utc, latitude, longitude
 
 
 # def is_lonlat_scalar(longitude, latitude):

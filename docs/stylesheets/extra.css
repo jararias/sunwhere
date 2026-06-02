@@ -1,0 +1,9 @@
+/* Configuración por defecto para el modo claro (esquema default) */
+[data-md-color-scheme="default"] .md-logo img {
+  content: url("../images/headerfig_Microsoft_Sans_Serif_black_on_transparent.png");
+}
+
+/* Intercambio automático al pasar al modo oscuro (esquema slate) */
+[data-md-color-scheme="slate"] .md-logo img {
+  content: url("../images/headerfig_Microsoft_Sans_Serif_white_on_transparent.png");
+}

@@ -1,6 +1,14 @@
+
+<!-- the caption element below is a workaround to center the image -->
+![header](images/headerfig_Microsoft_Sans_Serif_black_on_transparent.png#only-light){ width="800" }
+![header](images/headerfig_Microsoft_Sans_Serif_white_on_transparent.png#only-dark){ width="800" }
+/// caption
+///
+
 # Solar Position For Solar Resource Assessment
 
-![header](images/headerfig.png)
+<!-- ![image title](images/sunny-helmet-black-transparent-recortada.png#only-light){ width="400" } -->
+<!-- ![image title](images/sunny-helmet-white-transparent-recortada.png#only-dark){ width="400" } -->
 
 ![Python versions](https://img.shields.io/badge/python-3.11%2C3.12%2C3.13-blue.svg) ![Tests](images/tests-badge.svg) ![Coverage](images/coverage-badge.svg)
 
@@ -39,7 +47,7 @@ Table 1 compares execution times of sunwhere and two popular packages for solar 
 | **solposx** (SPA "NREL", numpy)    |    5114 ±  92    |    51348 ± 1597    |
 
 /// table-caption
-Table 1. Execution time (average of 10 runs ± standard deviation) for a year of minutely data in a single location and in 10 locations randomly chosen.
+Execution time (average of 10 runs ± standard deviation) for a year of minutely data in a single location and in 10 locations randomly chosen.
 ///
 
 ??? info  "**sunwhere is the top performer** in both cases 1 location and 10 locations"
