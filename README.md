@@ -1,4 +1,7 @@
-![python versions](https://img.shields.io/badge/python-3.11%2C3.12%2C3.13-blue.svg) ![tests-badge](https://raw.githubusercontent.com/jararias/sunwhere/main/docs/images/tests-badge.svg) ![coverage-badge](https://raw.githubusercontent.com/jararias/sunwhere/main/docs/images/coverage-badge.svg) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21975085.svg)](https://doi.org/10.5281/zenodo.21975085)
+![python versions](https://img.shields.io/badge/python-3.11%2C3.12%2C3.13-blue.svg)
+![tests-badge](https://raw.githubusercontent.com/jararias/sunwhere/main/docs/images/tests-badge.svg)
+![coverage-badge](https://raw.githubusercontent.com/jararias/sunwhere/main/docs/images/coverage-badge.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21975085.svg)](https://doi.org/10.5281/zenodo.21975085)
 
 
 # sunwhere. Solar position calculation for solar resource assessment
