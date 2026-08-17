@@ -55,6 +55,17 @@ publish:
 
 .PHONY: publish-test
 publish-test:
-	@test -n "$(UV_PUBLISH_TEST_TOKEN)" || (echo "Error: UV_PUBLISH_TEST_TOKEN no está definido (créalo en .env)"; exit 1)
+	@echo "🚀 Publishing version v$(VERSION) on test-pypi"
 	@uv build
-	@uv publish --publish-url https://test.pypi.org/legacy/ --token $(UV_PUBLISH_TEST_TOKEN)
+	@echo "✅ Package built"
+	@uv run scripts/create_env.py
+	@[ -f ".env" ] || { echo "❌ Error: the file .env does not exists."; exit 1; }
+	@echo "✅ File .env created"
+	@set -a; . ./.env; set +a; \
+	  test -n "$$UV_PUBLISH_TEST_TOKEN" || (echo "❌ Error: UV_PUBLISH_TEST_TOKEN is not defined in .env"; exit 1)
+	@set -a; . ./.env; set +a; uv publish --publish-url https://test.pypi.org/legacy/ --token $$UV_PUBLISH_TEST_TOKEN
+	@echo "✅ Package published on test-pypi"
+	@rm -f .env
+	@echo "✅ File .env deleted"
+	@rm -rf dist
+	@echo "✅ dist directory deleted"
