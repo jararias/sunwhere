@@ -10,7 +10,11 @@
 <!-- ![image title](images/sunny-helmet-black-transparent-recortada.png#only-light){ width="400" } -->
 <!-- ![image title](images/sunny-helmet-white-transparent-recortada.png#only-dark){ width="400" } -->
 
-![Python versions](https://img.shields.io/badge/python-3.11%2C3.12%2C3.13-blue.svg) ![Tests](images/tests-badge.svg) ![Coverage](images/coverage-badge.svg)
+![Python versions](https://img.shields.io/badge/python-3.11%2C3.12%2C3.13-blue.svg)
+![Tests](images/tests-badge.svg)
+![Coverage](images/coverage-badge.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21975085.svg)](https://doi.org/10.5281/zenodo.21975085)
+
 
 **sunwhere** is a Python library designed *for fast and accurate calculations of solar position* for solar resource applications 🌞.
 
