@@ -49,9 +49,20 @@ docs-clean:
 
 .PHONY: publish
 publish:
-	@test -n "$(UV_PUBLISH_TOKEN)" || (echo "Error: UV_PUBLISH_TOKEN no está definido (créalo en .env)"; exit 1)
+	@echo "🚀 Publishing version v$(VERSION) on pypi"
 	@uv build
-	@uv publish
+	@echo "✅ Package built"
+	@uv run scripts/create_env.py
+	@[ -f ".env" ] || { echo "❌ Error: the file .env does not exists."; exit 1; }
+	@echo "✅ File .env created"
+	@set -a; . ./.env; set +a; \
+	  test -n "$$UV_PUBLISH_TOKEN" || (echo "❌ Error: UV_PUBLISH_TOKEN no está definido (créalo en .env)"; exit 1)
+	@set -a; . ./.env; set +a; uv publish
+	@echo "✅ Package published on pypi"
+	@rm -f .env
+	@echo "✅ File .env deleted"
+	@rm -rf dist
+	@echo "✅ dist directory deleted"
 
 .PHONY: publish-test
 publish-test:
