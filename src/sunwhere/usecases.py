@@ -171,7 +171,7 @@ def sites(
                 f'but got {site_names.shape[0]} for site_names and {sites_lats.shape[0]} for latitude/longitude')
 
     # NOTE: ndim=1: two dimensional space: (n_times, n_locations)
-    # NOTE: times_utc is a naive datetime64[s], UTC
+    # NOTE: times_utc is a naive datetime64[ns], UTC
 
     solpos = evaluate(times_utc, sites_lats, sites_lons, algorithm,
                       ndim=1, refraction=refraction, engine=engine)
@@ -318,7 +318,7 @@ def regular_grid(
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
     times_utc = np.array(
         pd.to_datetime(times, utc=True).tz_localize(None),  # naive datetime, UTC
-        ndmin=1, dtype='datetime64[s]')
+        ndmin=1, dtype='datetime64[ns]')
     grid_lats = np.array(latitude, ndmin=1, dtype=np.float64)
     grid_lons = np.array(longitude, ndmin=1, dtype=np.float64)
 
@@ -479,11 +479,17 @@ def transect(
     #   inputs as UTC, while timezone-aware inputs are "converted" to UTC
     times_utc = np.array(
         pd.to_datetime(times, utc=True).tz_localize(None),
-        ndmin=1, dtype='datetime64[s]')  # naive datetime, UTC
+        ndmin=1, dtype='datetime64[ns]')  # naive datetime, UTC
     transect_lats = np.array(latitude, ndmin=1, dtype=np.float64)
     transect_lons = np.array(longitude, ndmin=1, dtype=np.float64)
 
     check_dimensions(times_utc.ndim, transect_lats.ndim, transect_lons.ndim, (1, 1, 1))
+
+    # a scalar latitude (longitude) is used for all times
+    if transect_lats.size == 1:
+        transect_lats = np.full(times_utc.shape, transect_lats[0])
+    if transect_lons.size == 1:
+        transect_lons = np.full(times_utc.shape, transect_lons[0])
 
     if not (transect_lats.shape == transect_lons.shape == times_utc.shape):
         raise ValueError(

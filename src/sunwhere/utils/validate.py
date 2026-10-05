@@ -20,7 +20,7 @@ def check_timelatlon(times, latitude, longitude, ndim, dtype=None, dt64=None):
     """
 
     dtype = dtype or np.float64
-    dt64 = dt64 or np.datetime64(1, 's')  # equivalent to 'datetime64[s]'
+    dt64 = dt64 or 'datetime64[ns]'  # ns: sub-second times must not be truncated
 
     # validate times...
     #   the argument `utc` of pd.to_datetime "localizes" timezone-naive

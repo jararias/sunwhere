@@ -13,7 +13,25 @@ Sunwhere accepts various time formats:
 - NumPy `datetime64` arrays
 - Any format accepted by `pandas.to_datetime()`
 
-**Important**: Timezone-naive times are assumed to be UTC.
+**Important**: Timezone-naive times are assumed to be UTC. Timezone-aware times are converted to UTC.
+
+### Time Zones in the Outputs
+
+The `time` coordinate of the output DataArrays is always **naive UTC** (`datetime64[ns]`), even if the input times are timezone-aware. xarray does not fully support timezone-aware coordinates: operations such as `groupby('time.month')`, `interp`, `to_netcdf` or alignment with other data would fail. The original input times, with their timezone, are kept in `result.times`, and the timezone in `result.timezone`.
+
+```python
+times = pd.date_range('2024-06-21', periods=24, freq='h', tz='Europe/Madrid')
+result = sunwhere.sites(times, 40.4, -3.7)
+
+result.sza.time.values[0]      # numpy.datetime64('2024-06-20T22:00:00'), UTC
+result.times[0]                # Timestamp('2024-06-21 00:00:00+0200', tz='Europe/Madrid')
+
+# select with a timezone-aware timestamp: convert it to naive UTC first
+result.sza.sel(time=times[12].tz_convert(None))
+
+# get a pandas object in local time
+result.sza.to_pandas().tz_localize('UTC').tz_convert('Europe/Madrid')
+```
 
 ```python
 import pandas as pd
@@ -53,6 +71,10 @@ result = sunwhere.sites(times, lat, lon, algorithm='nrel')
 # Educational/testing: Iqbal
 result = sunwhere.sites(times, lat, lon, algorithm='iqbal')
 ```
+
+### Azimuth Convention
+
+The solar azimuth angle is in **\[-180°, 180°\], zero south**: negative in the morning (east), positive in the afternoon (west). pvlib uses [0°, 360°) clockwise from north. Use `result.azimuth_north` (or add 180°) to convert.
 
 ### Engine Selection
 
@@ -152,9 +174,10 @@ All returned variables are xarray DataArrays:
 
 ```python
 result.sza         # Solar zenith angle (degrees)
-result.saa         # Solar azimuth angle (degrees, 0=North, 90=East)
+result.saa         # Solar azimuth angle (degrees, [-180, 180], 0=South, negative before noon)
 result.zenith      # Alias for sza
 result.azimuth     # Alias for saa
+result.azimuth_north  # Solar azimuth angle (degrees, [0, 360), 0=North, 90=East), as in pvlib
 result.elevation   # Solar elevation angle = 90 - sza (degrees)
 result.cosz        # Cosine of zenith angle
 result.dec         # Solar declination (degrees)
@@ -309,7 +332,7 @@ You can keep one coordinate constant:
 # Moving north along Prime Meridian
 times = pd.date_range('2024-06-21 12:00', periods=181, freq='h', tz='UTC')
 lats = np.linspace(-90, 90, 181)  # South Pole to North Pole
-lons = np.full(len(lats), 0.0)  # Prime Meridian (scalar)
+lon = 0.0  # Prime Meridian (a scalar is used for all times)
 
 result = sunwhere.transect(times, lats, lon)
 

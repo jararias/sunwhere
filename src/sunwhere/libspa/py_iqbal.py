@@ -25,8 +25,8 @@ def sunpos(unixtime, longitude, latitude, ndim=1, with_refraction=False):
 
     # inputs must be 1d arrays
     unixtime = np.array(unixtime, ndmin=1, dtype=np.float64).ravel()
-    longitude = np.array(longitude, ndmin=1, dtype=np.float32).ravel()
-    latitude = np.array(latitude, ndmin=1, dtype=np.float32).ravel()
+    longitude = np.array(longitude, ndmin=1, dtype=np.float64).ravel()
+    latitude = np.array(latitude, ndmin=1, dtype=np.float64).ravel()
 
     if ndim == 0:
 
@@ -156,7 +156,8 @@ def _sunpos_one_dimensional(unixtime, longitude, latitude, with_refraction):
         refcor = (0.061359*(0.1594+(1.1230*alpha)
                   + (0.065656*alpha2))/(1.+(28.9344*alpha)
                   + (277.3971*alpha2)))
-        sza_rad = HALFPI - (alpha + refcor)
+        # only above the horizon, as in NREL's SPA
+        sza_rad = HALFPI - np.where(alpha >= -1.4545e-2, alpha + refcor, alpha)
 
     dy = -np.sin(hour_angle)
     dx = tanDecl*cosLat - sinLat*cosHour
@@ -215,7 +216,8 @@ def _sunpos_two_dimensional(unixtime, longitude, latitude, with_refraction):
         refcor = (0.061359*(0.1594+(1.1230*alpha)
                   + (0.065656*alpha2))/(1.+(28.9344*alpha)
                   + (277.3971*alpha2)))
-        sza_rad = HALFPI - (alpha + refcor)
+        # only above the horizon, as in NREL's SPA
+        sza_rad = HALFPI - np.where(alpha >= -1.4545e-2, alpha + refcor, alpha)
 
     dy = -np.sin(hour_angle)
     dx = tanDecl*cosLat - sinLat*cosHour
@@ -276,7 +278,8 @@ def _sunpos_three_dimensional(unixtime, longitude, latitude, with_refraction):
         refcor = (0.061359*(0.1594+(1.1230*alpha)
                   + (0.065656*alpha2))/(1.+(28.9344*alpha)
                   + (277.3971*alpha2)))
-        sza_rad = HALFPI - (alpha + refcor)
+        # only above the horizon, as in NREL's SPA
+        sza_rad = HALFPI - np.where(alpha >= -1.4545e-2, alpha + refcor, alpha)
 
     dy = -np.sin(hour_angle)
     dx = tanDecl*cosLat - sinLat*cosHour

@@ -159,7 +159,11 @@ def evaluate(times, latitude, longitude, algorithm='psa', ndim=1,
     # ... and call it
     namespace = spa_func.__module__ + '.' + spa_func.__name__
     logger.debug(f'running simulation with function {namespace}')
-    result = spa_func(times_nonat, lons_nonat, lats_nonat, *spa_args)
+    # the spa functions take seconds since 1970-01-01T00 UTC. I pass them
+    # as float64 to retain sub-second resolution (a datetime64[s] input
+    # would be truncated to whole seconds)
+    unixtime = times_nonat.astype('datetime64[ns]').astype(np.int64) / 1e9
+    result = spa_func(unixtime, lons_nonat, lats_nonat, *spa_args)
 
     # fill with NaN where times is NaT...
     nonat = ~np.isnat(times_utc)

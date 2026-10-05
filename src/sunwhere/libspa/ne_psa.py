@@ -30,8 +30,8 @@ def sunpos(unixtime, longitude, latitude, ndim=1, with_refraction=True):
 
     # inputs must be 1d arrays
     unixtime = np.array(unixtime, ndmin=1, dtype=np.float64).ravel()
-    longitude = np.array(longitude, ndmin=1, dtype=np.float32).ravel()
-    latitude = np.array(latitude, ndmin=1, dtype=np.float32).ravel()
+    longitude = np.array(longitude, ndmin=1, dtype=np.float64).ravel()
+    latitude = np.array(latitude, ndmin=1, dtype=np.float64).ravel()
 
     if ndim == 0:
 
@@ -82,7 +82,7 @@ def time_dependent_calculations(unixtime):
     omega = nex('2.267127827 - 9.300339267e-4*jde')
     L = nex('4.895036035 + 1.720279602e-2*jde')  # mean longitude, radians
     g = nex('6.239468336 + 1.720200135e-2*jde')  # mean anomaly, radians
-    l = nex(  # ecliptic longitude, radians
+    l = nex(  # noqa: E741  # ecliptic longitude, radians
         'L - 1.544353226e-4 + 3.338320972e-2*sin(g)'
         '+ 3.497596876e-4*sin(2*g) - 8.689729360e-6*sin(omega)')
     # obliquity of the ecliptic, radians

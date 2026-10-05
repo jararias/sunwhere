@@ -104,10 +104,17 @@ class Sunpos:
                 None
             )  # if the input times were naive, I de-localize self._times to make it naive as well
 
+        # The time coordinate of the output DataArrays is always naive UTC
+        # datetime64[ns]. xarray does not fully support timezone-aware indexes
+        # (e.g., groupby, interp, to_netcdf, or alignment with naive data fail
+        # with "Cannot interpret 'datetime64[us, UTC]' as a data type"). The
+        # original (possibly tz-aware) times remain available in `self.times`
+        self._time_coord = self._times_utc.tz_localize(None).as_unit("ns")
+
         self._latitude = np.array(latitude, ndmin=1)
         self._longitude = np.array(longitude, ndmin=1)
 
-        if self._latitude.ndim != self._longitude.ndim != 1:
+        if not (self._latitude.ndim == self._longitude.ndim == 1):
             raise ValueError(
                 "expected 1-dim latitude and longitude, but "
                 f"got {self._latitude.ndim}-dim latitude and "
@@ -163,7 +170,7 @@ class Sunpos:
                 )
             # xarray coordinates
             coords = {
-                "time": self._times,
+                "time": self._time_coord,
                 "site": self._site_names
                 if self._site_names is not None
                 else range(n_lats),
@@ -215,7 +222,7 @@ class Sunpos:
                 )
             # xarray coordinates
             coords = {
-                "time": self._times,
+                "time": self._time_coord,
                 "lat": self._latitude,
                 "lon": self._longitude,
             }
@@ -268,7 +275,7 @@ class Sunpos:
                 )
             # xarray coordinates
             coords = {
-                "time": self._times,
+                "time": self._time_coord,
                 "lat": ("time", self._latitude),
                 "lon": ("time", self._longitude),
             }
@@ -312,11 +319,14 @@ class Sunpos:
 
     @property
     def times(self):
-        """Times where solar geometry is evaluated.
+        """Times where solar geometry is evaluated, as given by the user.
+
+        Note that the `time` coordinate of the output DataArrays is always
+        naive UTC, whereas this property keeps the input timezone, if any.
 
         Returns
         -------
-        np.ndarray[tuple[int], np.datetime64]:
+        pandas.DatetimeIndex:
             Times where solar geometry is evaluated.
         """
         return self._times
@@ -327,8 +337,8 @@ class Sunpos:
 
         Returns
         -------
-        np.ndarray[tuple[int], np.datetime64]:
-            Universal coordinated times.
+        pandas.DatetimeIndex:
+            Universal coordinated times (timezone-aware, UTC).
         """
         return self._times_utc
 
@@ -396,7 +406,7 @@ class Sunpos:
         times_utc_naive = self._times_utc.tz_localize(None)
         utc_f = xr.DataArray(
             np.array(times_utc_naive, dtype=dt64).astype("float64"),
-            coords={"time": self._times},
+            coords={"time": self._time_coord},
             dims=["time"],
         )
 
@@ -533,6 +543,29 @@ class Sunpos:
                 units="degrees",
                 range="(-180 am, 180 pm)",
                 description="solar azimuth angle",
+            )
+        )
+
+    @property
+    def azimuth_north(self):
+        """Solar azimuth angle measured clockwise from north.
+
+        This is the convention used by pvlib and most PV software
+        (0 = north, 90 = east, 180 = south, 270 = west). It is related
+        to `azimuth` (zero south) by ``azimuth_north = azimuth + 180``.
+
+        Returns
+        -------
+        xarray.DataArray
+            Solar azimuth angle, in degrees [0°, 360°), zero north, clockwise.
+        """
+        return (
+            ((self.azimuth + 180.0) % 360.0)
+            .rename("azimuth_north")
+            .assign_attrs(
+                units="degrees",
+                range="[0, 360)",
+                description="solar azimuth angle, clockwise from north",
             )
         )
 
@@ -714,7 +747,8 @@ class Sunpos:
         Returns
         -------
         xarray.DataArray
-            Sunrise angle or time.
+            Sunrise angle or time. The sunrise hour angle is positive (the
+            hour angle is positive in the morning).
 
         Raises
         ------
@@ -803,7 +837,8 @@ class Sunpos:
         Returns
         -------
         xarray.DataArray
-            Sunset angle or time.
+            Sunset angle or time. The sunset hour angle is negative (the
+            hour angle is positive in the morning).
 
         Raises
         ------
@@ -825,12 +860,10 @@ class Sunpos:
             wsr = self.sunrise(units)
             dl_hr = self.daylight_length()
             wss = wsr + dl_hr.copy(data=(dl_hr * 3600 * 1e9).astype("timedelta64[ns]"))
-
-        if units == "deg":
-            wss = (12.0 - wss) * 15
-
-        if units == "rad":
-            wss = np.radians((12.0 - wss) * 15)
+        else:
+            # the hour angle is positive in the morning, hence the sunset
+            # hour angle is the sunrise hour angle with opposite sign
+            wss = -self.sunrise(units)
 
         return wss.rename("wss").assign_attrs(
             units={
@@ -905,6 +938,6 @@ class Sunpos:
             + (coslat * cosbeta + sinlat * sinbeta * cosgamma) * cosdec * coshour
             + cosdec * sinhour * sinbeta * singamma
         )
-        return coss.rename("incidence").assign_attrs(
+        return coss.transpose(*self.zenith.dims).rename("incidence").assign_attrs(
             units="-", description="cosine of the angle of incidence"
         )

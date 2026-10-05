@@ -33,8 +33,8 @@ def sunpos(unixtime, longitude, latitude, ndim=1, with_refraction=True):
 
     # inputs must be 1d arrays
     unixtime = np.array(unixtime, ndmin=1, dtype=np.float64).ravel()
-    longitude = np.array(longitude, ndmin=1, dtype=np.float32).ravel()
-    latitude = np.array(latitude, ndmin=1, dtype=np.float32).ravel()
+    longitude = np.array(longitude, ndmin=1, dtype=np.float64).ravel()
+    latitude = np.array(latitude, ndmin=1, dtype=np.float64).ravel()
 
     if ndim == 0:
 
@@ -159,7 +159,7 @@ def _sunpos_one_dimensional(unixtime, longitude, latitude, with_refraction):
 
     # correct for atmospheric refraction (ignore T and P), Eq 27
     if with_refraction is True:
-        alt = nex('alt + (2.967e-4 / tan(alt + 3.1376e-3/(alt + 8.92e-2)))')
+        alt = nex('where(alt >= -1.4545e-2, alt + (2.967e-4 / tan(alt + 3.1376e-3/(alt + 8.92e-2))), alt)')
 
     zenith = HALFPI - alt
 
@@ -194,7 +194,7 @@ def _sunpos_two_dimensional(unixtime, longitude, latitude, with_refraction):
 
     # correct for atmospheric refraction (ignore T and P), Eq 27
     if with_refraction is True:
-        alt = nex('alt + (2.967e-4 / tan(alt + 3.1376e-3/(alt + 8.92e-2)))')
+        alt = nex('where(alt >= -1.4545e-2, alt + (2.967e-4 / tan(alt + 3.1376e-3/(alt + 8.92e-2))), alt)')
 
     zenith = HALFPI - alt
 
@@ -230,7 +230,7 @@ def _sunpos_three_dimensional(unixtime, longitude, latitude, with_refraction):
 
     # correct for atmospheric refraction (ignore T and P), Eq 27
     if with_refraction is True:
-        alt = nex('alt + (2.967e-4 / tan(alt + 3.1376e-3/(alt + 8.92e-2)))')
+        alt = nex('where(alt >= -1.4545e-2, alt + (2.967e-4 / tan(alt + 3.1376e-3/(alt + 8.92e-2))), alt)')
 
     zenith = HALFPI - alt
 

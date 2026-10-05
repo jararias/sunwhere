@@ -4,12 +4,13 @@ build-backend = "uv_build"
 
 [project]
 name = "sunwhere"
-version = "1.4.2"
+version = "1.5.0"
 description = "Fast and accurate solar position calculations for solar resource assessment"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "Jose A Ruiz-Arias", email = "jararias@uma.es"}]
-license = {text = "CC BY-NC-SA 4.0"}
+license = "CC-BY-NC-SA-4.0"
+license-files = ["LICENSE"]
 keywords = ["solar", "sun position", "solar geometry", "solar resource"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -22,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Physics",
-    "License :: Other/Proprietary License",
 ]
 
 dependencies = [

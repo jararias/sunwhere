@@ -13,10 +13,13 @@
 ![Python versions](https://img.shields.io/badge/python-3.11%2C3.12%2C3.13-blue.svg)
 ![Tests](images/tests-badge.svg)
 ![Coverage](images/coverage-badge.svg)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21975085.svg)](https://doi.org/10.5281/zenodo.21975085)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21975084.svg)](https://doi.org/10.5281/zenodo.21975084)
 
 
 **sunwhere** is a Python library designed *for fast and accurate calculations of solar position* for solar resource applications 🌞.
+
+!!! note "License"
+    sunwhere is free for research and non-commercial use ([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)). Commercial use is not permitted under this license. See [License](#license).
 
 *sunwhere* provides solar zenith and azimuth angles, sun-earth distance correction factor, and secondary parameters such as solar declination, equation of time, and many more. It's optimized for typical workflows in solar energy research and engineering.
 
@@ -57,9 +60,9 @@ Execution time (average of 10 runs ± standard deviation) for a year of minutely
 ??? info  "**sunwhere is the top performer** in both cases 1 location and 10 locations"
 
      - For one location, the differences are not significant, in practice, when using *PSA* but they are remarkable when using *NREL* (sunwhere is few seconds faster than both pvlib and solpos).
-     - For 10 locations, sunwhere is significantly faster than both pvlib and solposx when using *PSA* and embarrasingly faster when using *NREL* (sunwhere is about 100x faster then both pvlib and solposx).
-     - For one location and hourly data, the differences between models are still not significant and sunwhere can be slower than the other two packages due to starting penalties.
-     - As the number of locations grows beyond 10, the differences in favor of sunwhere are even larger.
+     - For 10 locations, sunwhere is significantly faster than both pvlib and solposx when using *PSA* (about 5-7x) and much faster when using *NREL* (about 20x: 2.5 s against 50 s).
+     - For one location and hourly (or shorter) time series, the differences between packages are not significant and sunwhere can even be slower than the other two packages, due to its start-up overhead (validation of inputs and construction of the xarray outputs).
+     - As the number of locations grows beyond 10, the time of sunwhere grows more slowly than that of the other packages. See [Benchmarks](benchmarks.md) for larger cases.
 
 #### Modern Data Structures
 
@@ -230,7 +233,7 @@ plt.show()
 
 ## Getting Started
 
-Ready to use sunwhere? Check out the [Installation](installation.md) guide and the [User Guide](user-guide.md) to get started!
+Ready to use sunwhere? Check out the [Installation](installation.md) guide and the [User Guide](user-guide.md) to get started! The accuracy and speed of the algorithms are compared with other packages in [Benchmarks](benchmarks.md).
 
 ## References
 
@@ -242,17 +245,23 @@ Ready to use sunwhere? Check out the [Installation](installation.md) guide and t
 
 ## License
 
-sunwhere is licensed under CC BY-NC-SA 4.0 - free for non-commercial use.
+sunwhere is distributed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) license (CC BY-NC-SA 4.0):
+
+- **Free for research, teaching and other non-commercial use**, with attribution.
+- **Commercial use is not permitted** under this license. For commercial use, contact the author.
+- Derivative works must be distributed under the same license.
 
 ## Citation
 
 If you use sunwhere in your research, please cite:
 
 ```bibtex
-@software{sunwhere2024,
+@software{sunwhere,
   author = {Ruiz-Arias, Jose A.},
   title = {sunwhere: Solar position for solar resource assessment},
-  year = {2024},
+  doi = {10.5281/zenodo.21975084},
   url = {https://github.com/jararias/sunwhere}
 }
 ```
+
+The DOI [10.5281/zenodo.21975084](https://doi.org/10.5281/zenodo.21975084) always resolves to the latest version. Each release also has its own version-specific DOI, listed on Zenodo.

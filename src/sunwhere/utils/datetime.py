@@ -8,7 +8,7 @@ def true_solar_time(times_utc, longitude):
     dt64 = 'datetime64[ns]'
     times_utc = np.array(times_utc, ndmin=1)
     longitude = np.array(longitude, ndmin=1)
-    eot = evaluate(times_utc, 0., 0.).eot  # eot, minutes
+    eot = evaluate(times_utc, 0., 0.)['eot']  # eot, minutes
     # for compat with numpy < 1.18.0, I use reshape instead of expand_dims
     new_shape = tuple(list(eot.shape) + [1]*longitude.ndim)
     expanded_eot = np.reshape(eot, new_shape)
@@ -26,7 +26,7 @@ def universal_time_coordinated(times_tst, longitude):
     dt64 = 'datetime64[ns]'
     times_tst = np.array(times_tst, ndmin=1)
     longitude = np.array(longitude, ndmin=1)
-    eot = evaluate(times_tst, 0., 0.).eot  # eot, minutes
+    eot = evaluate(times_tst, 0., 0.)['eot']  # eot, minutes
     # for compat with numpy < 1.18.0, I use reshape instead of expand_dims
     new_shape = tuple(list(eot.shape) + [1]*longitude.ndim)
     expanded_eot = np.reshape(eot, new_shape)

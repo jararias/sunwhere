@@ -96,7 +96,6 @@ def test_psa_numexpr_consistency(space_time_sites, sites_nrel, allclose):
 
 
 def test_soltrack_numpy_consistency(space_time_sites, sites_nrel, allclose):
-    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numpy', 'refraction': False}
     nrel = sites_nrel
     get = get_da_for_sites
@@ -109,7 +108,6 @@ def test_soltrack_numpy_consistency(space_time_sites, sites_nrel, allclose):
 
 
 def test_soltrack_numexpr_consistency(space_time_sites, sites_nrel, allclose):
-    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numexpr', 'refraction': False}
     nrel = sites_nrel
     get = get_da_for_sites
@@ -182,7 +180,6 @@ def test_psa_numexpr_regular_grid_consistency(space_time_regular_grid, allclose)
 
 
 def test_soltrack_numpy_regular_grid_consistency(space_time_regular_grid, allclose):
-    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_regular_grid
     sites = sunwhere.sites(*space_time_regular_grid, **kwargs)
@@ -195,7 +192,6 @@ def test_soltrack_numpy_regular_grid_consistency(space_time_regular_grid, allclo
 
 
 def test_soltrack_numexpr_regular_grid_consistency(space_time_regular_grid, allclose):
-    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_regular_grid
     sites = sunwhere.sites(*space_time_regular_grid, **kwargs)
@@ -271,7 +267,6 @@ def test_psa_numexpr_transect_consistency(space_time_transect, allclose):
 
 
 def test_soltrack_numpy_transect_consistency(space_time_transect, allclose):
-    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numpy', 'refraction': False}
     get = get_da_for_transect
     for time, lat, lon in zip(*space_time_transect):
@@ -285,7 +280,6 @@ def test_soltrack_numpy_transect_consistency(space_time_transect, allclose):
 
 
 def test_soltrack_numexpr_transect_consistency(space_time_transect, allclose):
-    pytest.skip("soltrack is a private/dev algorithm, not part of public API")
     kwargs = {'algorithm': 'soltrack', 'engine': 'numexpr', 'refraction': False}
     get = get_da_for_transect
     for time, lat, lon in zip(*space_time_transect):

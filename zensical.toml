@@ -9,6 +9,7 @@ nav = [
     {"Installation" = "installation.md"},
     {"User Guide" = "user-guide.md"},
     {"Quick Reference" = "quick-reference.md"},
+    {"Benchmarks" = "benchmarks.md"},
     {"API Reference" = "api.md"},
 ]
 extra_css = ["stylesheets/extra.css"]

@@ -26,8 +26,8 @@ def sunpos(unixtime, longitude, latitude, ndim=1, with_refraction=True):
 
     # inputs must be 1d arrays
     unixtime = np.array(unixtime, ndmin=1, dtype=np.float64).ravel()
-    longitude = np.array(longitude, ndmin=1, dtype=np.float32).ravel()
-    latitude = np.array(latitude, ndmin=1, dtype=np.float32).ravel()
+    longitude = np.array(longitude, ndmin=1, dtype=np.float64).ravel()
+    latitude = np.array(latitude, ndmin=1, dtype=np.float64).ravel()
 
     if ndim == 0:
 

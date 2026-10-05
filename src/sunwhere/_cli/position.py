@@ -9,7 +9,10 @@ import pandas as pd
 import sunwhere
 
 
-locale.setlocale(locale.LC_TIME, locale.getlocale())
+try:
+    locale.setlocale(locale.LC_TIME, '')
+except locale.Error:
+    pass
 
 
 def calculate_position(time, lat, lon, algorithm, refraction):
@@ -17,11 +20,16 @@ def calculate_position(time, lat, lon, algorithm, refraction):
     # Online service to verify the results of NREL's SPA
     # https://www.kso.ac.at/beobachtungen/ephem_api.php?date=20230715&time=12%3A00%3A00&lat=40.0000&lon=0.0000
 
+    local_tz = datetime.now().astimezone().tzinfo
     if time == 'now':
-        time_local = datetime.now().astimezone()  # local hour
+        time_local = pd.Timestamp.now(tz=local_tz)  # local hour
     else:
-        time_local = pd.to_datetime(time).tz_localize(None).astimezone()  # local hour
-    time_utc = datetime.now(UTC)  # UTC hour
+        # naive times are local times; tz-aware times are converted to local
+        time_local = pd.Timestamp(time)
+        if time_local.tz is None:
+            time_local = time_local.tz_localize(local_tz)
+        time_local = time_local.tz_convert(local_tz)
+    time_utc = time_local.tz_convert(UTC)  # UTC hour
 
     sw = sunwhere.sites(time_local, lat, lon, algorithm=algorithm, refraction=refraction)
     sr_utc = pd.Timestamp(sw.sunrise(units="utc").isel(time=0, site=0).item())

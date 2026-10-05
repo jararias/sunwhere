@@ -68,12 +68,37 @@
 
 ### Solar Azimuth Angle
 
-- 0° = North
-- 90° = East
-- 180° = South
-- 270° = West
+sunwhere returns the solar azimuth angle (`azimuth`, alias `saa`) in the range **\[-180°, 180°\], with zero south**:
 
-Measured clockwise from North.
+- 0° = South
+- -90° = East (negative values before solar noon)
+- +90° = West (positive values after solar noon)
+- ±180° = North
+
+pvlib and most PV software measure azimuth **clockwise from north in [0°, 360°)** (0° = North, 90° = East, 180° = South, 270° = West). To convert, add 180°, or use the `azimuth_north` property:
+
+```python
+result.azimuth_north  # == (result.azimuth + 180) % 360, zero north, clockwise
+```
+
+### Time Zones
+
+- Timezone-naive input times are assumed to be **UTC**.
+- Timezone-aware input times are converted to UTC.
+- The `time` coordinate of all output DataArrays is **naive UTC** (`datetime64[ns]`), whatever the input timezone. xarray does not fully support timezone-aware coordinates.
+- The original input times, with their timezone, are kept in `result.times` and `result.timezone`.
+
+```python
+times = pd.date_range('2024-06-21', periods=24, freq='h', tz='Europe/Madrid')
+result = sunwhere.sites(times, 40.4, -3.7)
+result.sza.sel(time='2024-06-21 10:00')                  # 10:00 UTC (12:00 in Madrid)
+result.sza.sel(time=times[12].tz_convert(None))           # select with a tz-aware timestamp
+result.sza.to_pandas().tz_localize('UTC').tz_convert('Europe/Madrid')  # back to local time
+```
+
+### Sunrise and Sunset Hour Angles
+
+`sunrise('deg')` returns a positive hour angle and `sunset('deg')` returns a negative one, because the hour angle is positive in the morning. Both have the same magnitude.
 
 ### Solar Zenith Angle
 

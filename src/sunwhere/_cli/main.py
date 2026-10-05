@@ -1,5 +1,10 @@
 
-import typer
+try:
+    import typer
+except ImportError:
+    raise SystemExit(
+        "sunwhere's CLI requires extra dependencies. "
+        "Install them with: pip install 'sunwhere[cli]'") from None
 
 # import pylab as pl
 
